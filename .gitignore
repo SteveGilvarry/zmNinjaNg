@@ -68,3 +68,6 @@ vendor/bundle/
 
 # LlamaKit SPM build artifacts
 app/ios/App/LlamaKit/.build/
+
+# Playwright MCP scratch output
+.playwright-mcp/
