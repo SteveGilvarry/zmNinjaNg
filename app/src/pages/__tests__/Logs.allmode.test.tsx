@@ -101,7 +101,7 @@ describe('Logs page - All mode profile picker (refs #337)', () => {
     vi.mocked(getSession).mockImplementation((id) => ({
       profileId: id,
       client: { profile: id } as never,
-      timezone: 'UTC',
+      timezone: 'UTC', backend: 'legacy',
     }));
     vi.mocked(useCurrentProfile).mockReturnValue({
       currentProfile: null, settings: { logLevel: 1 } as never, hasProfile: false, isAllMode: true,

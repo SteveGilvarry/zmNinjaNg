@@ -1,0 +1,216 @@
+/**
+ * Authentication API
+ * 
+ * Handles login, token refresh, and version checking against the ZoneMinder API.
+ * Uses the configured API client for requests.
+ */
+
+import type { ApiClient } from '../client';
+import type { Go2RTCPathResponse, LoginResponse, ZmsPathResponse, VersionResponse } from '../types';
+import { Go2RTCPathResponseSchema, LoginResponseSchema, ZmsPathResponseSchema, VersionResponseSchema } from '../types';
+import { log, LogLevel } from '../../lib/logger';
+import type { HttpError } from '../../lib/http';
+
+export interface LoginCredentials {
+  user: string;
+  pass: string;
+}
+
+export interface LoginWithRefreshToken {
+  token: string;
+}
+
+/**
+ * Login to ZoneMinder with username and password.
+ * 
+ * Sends a POST request to /host/login.json with form-encoded credentials.
+ * Validates the response using Zod schema.
+ * 
+ * @param client - API client for the target profile
+ * @param credentials - Object containing username and password
+ * @returns Promise resolving to LoginResponse containing tokens and version info
+ * @throws Error if login fails or response validation fails
+ */
+export async function login(client: ApiClient, credentials: LoginCredentials): Promise<LoginResponse> {
+  log.auth('Login attempt', LogLevel.INFO, { username: credentials.user });
+
+  // ZoneMinder expects form-encoded data for login
+  const formData = new URLSearchParams();
+  formData.append('user', credentials.user);
+  formData.append('pass', credentials.pass);
+  log.auth('Login form data prepared', LogLevel.DEBUG);
+
+  try {
+    const response = await client.postForm<LoginResponse>('/host/login.json', formData);
+
+    log.auth('Login response received', LogLevel.DEBUG, {
+      status: response.status,
+      statusText: response.statusText,
+      hasData: !!response.data,
+      dataKeys: response.data ? Object.keys(response.data) : [],
+    });
+
+    // Validate response with Zod
+    try {
+      const validated = LoginResponseSchema.parse(response.data);
+      log.auth('Response validation successful');
+      return validated;
+    } catch (zodError: unknown) {
+      log.auth('Zod validation failed for login response', LogLevel.ERROR, {
+        error: zodError,
+        expectedFields: 'access_token, access_token_expires, refresh_token, refresh_token_expires',
+        receivedData: response.data,
+        zodError: (zodError as Error).message,
+      });
+      throw zodError;
+    }
+  } catch (error: unknown) {
+    const err = error as HttpError & { constructor: { name: string } };
+    log.auth('Login failed', LogLevel.ERROR, {
+      error,
+      errorType: err.constructor.name,
+      message: err.message,
+      status: err.status,
+      responseData: err.data,
+    });
+
+    throw error;
+  }
+}
+
+/**
+ * Refresh access token using refresh token.
+ * 
+ * Sends a POST request to /host/login.json with the refresh token.
+ * 
+ * @param client - API client for the target profile
+ * @param refreshToken - The refresh token obtained from previous login
+ * @returns Promise resolving to LoginResponse with new tokens
+ */
+export async function refreshToken(client: ApiClient, refreshToken: string): Promise<LoginResponse> {
+  // Use form-encoded data for consistency
+  const formData = new URLSearchParams();
+  formData.append('token', refreshToken);
+
+  const response = await client.postForm<LoginResponse>('/host/login.json', formData);
+
+  // Validate response with Zod
+  const validated = LoginResponseSchema.parse(response.data);
+  return validated;
+}
+
+/**
+ * Get API version.
+ *
+ * Fetches version information from /host/getVersion.json.
+ *
+ * @param client - API client for the target profile
+ * @returns Promise resolving to object with version and apiversion strings
+ */
+export async function getVersion(client: ApiClient): Promise<VersionResponse> {
+  const response = await client.get('/host/getVersion.json');
+
+  // Validate response with Zod
+  const validated = VersionResponseSchema.parse(response.data);
+  return validated;
+}
+
+/**
+ * Test if API is reachable and working.
+ *
+ * Attempts to fetch version info from the specified API URL.
+ * Useful for validating server connection during setup.
+ *
+ * @param client - API client to issue the probe request through
+ * @param apiUrl - The base API URL to test
+ * @returns Promise resolving to true if connection successful, false otherwise
+ */
+export async function testConnection(client: ApiClient, apiUrl: string): Promise<boolean> {
+  try {
+    await client.get('/host/getVersion.json', { baseURL: apiUrl });
+    return true;
+  } catch (error) {
+    log.auth('Connection test failed', LogLevel.WARN, { apiUrl, error });
+    return false;
+  }
+}
+
+/**
+ * Fetch the ZMS (ZoneMinder Streaming) path from server configuration.
+ *
+ * This API endpoint returns the server-configured ZMS path, which may differ
+ * from the default /cgi-bin/nph-zms. Only works after successful authentication.
+ *
+ * @param client - API client for the target profile
+ * @returns Promise resolving to the ZMS path (e.g., "/cgi-bin/nph-zms") or null if fetch fails
+ */
+export async function fetchZmsPath(client: ApiClient): Promise<string | null> {
+  try {
+    log.auth('Fetching ZMS path from server config', LogLevel.DEBUG);
+
+    const response = await client.get<ZmsPathResponse>('/configs/viewByName/ZM_PATH_ZMS.json');
+
+    // Validate response with Zod
+    const validated = ZmsPathResponseSchema.parse(response.data);
+    const zmsPath = validated.config.Value;
+
+    log.auth('ZMS path fetched successfully', LogLevel.INFO, { zmsPath });
+    return zmsPath;
+  } catch (error: unknown) {
+    const err = error as HttpError & { constructor: { name: string } };
+    log.auth('Failed to fetch ZMS path from server', LogLevel.WARN, {
+      error,
+      errorType: err.constructor.name,
+      message: err.message,
+      status: err.status,
+      responseData: err.data,
+    });
+
+    // Return null to allow fallback to inference logic
+    return null;
+  }
+}
+
+/**
+ * Fetch the Go2RTC path from server configuration.
+ *
+ * This API endpoint returns the server-configured Go2RTC URL (ZM_GO2RTC_PATH),
+ * which includes protocol, host, port, and path (e.g., "http://server:1984").
+ * Only works after successful authentication.
+ *
+ * Not all ZoneMinder servers have Go2RTC configured - this is optional.
+ *
+ * @param client - API client for the target profile
+ * @returns Promise resolving to the Go2RTC URL or null if not configured/fetch fails
+ */
+export async function fetchGo2RTCPath(client: ApiClient): Promise<string | null> {
+  try {
+    log.auth('Fetching Go2RTC path from server config', LogLevel.DEBUG);
+
+    const response = await client.get<Go2RTCPathResponse>('/configs/viewByName/ZM_GO2RTC_PATH.json');
+
+    // Validate response with Zod
+    const validated = Go2RTCPathResponseSchema.parse(response.data);
+    const go2rtcPath = validated.config.Value;
+
+    // Check if value is empty (not configured)
+    if (!go2rtcPath || go2rtcPath.trim() === '') {
+      log.auth('Go2RTC not configured (empty value)', LogLevel.INFO);
+      return null;
+    }
+
+    log.auth('Go2RTC path fetched successfully', LogLevel.INFO, { go2rtcPath });
+    return go2rtcPath;
+  } catch (error: unknown) {
+    const err = error as HttpError & { constructor: { name: string } };
+    log.auth('Failed to fetch Go2RTC path from server', LogLevel.INFO, {
+      error,
+      errorType: err.constructor.name,
+      message: err.message,
+      status: err.status,
+    });
+
+    // Return null - Go2RTC is optional
+    return null;
+  }
+}

@@ -36,6 +36,7 @@ import { Button } from '../ui/button';
 import { VideoOff, ShieldOff } from 'lucide-react';
 import { usePermissions } from '../../hooks/usePermissions';
 import { canViewStream } from '../../lib/permissions/zm-permissions';
+import { V3LiveMonitorPlayer } from './V3LiveMonitorPlayer';
 
 /**
  * Cache of monitors where Go2RTC failed: skip straight to MJPEG until TTL
@@ -165,7 +166,19 @@ export interface LiveMonitorPlayerProps {
   paused?: boolean;
 }
 
-export function LiveMonitorPlayer({
+/**
+ * Backend dispatcher: v3 (zm-api) profiles use the WebRTC/HLS player; legacy
+ * profiles keep the ZMS/go2rtc player below. Branching in a thin wrapper keeps
+ * the hook order in each underlying player unconditional.
+ */
+export function LiveMonitorPlayer(props: LiveMonitorPlayerProps) {
+  if (props.profile?.backend === 'zmapi-v3') {
+    return <V3LiveMonitorPlayer {...props} />;
+  }
+  return <LegacyLiveMonitorPlayer {...props} />;
+}
+
+function LegacyLiveMonitorPlayer({
   monitor,
   profile,
   profileId,

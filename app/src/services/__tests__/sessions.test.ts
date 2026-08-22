@@ -80,6 +80,10 @@ describe('sessions', () => {
         void id;
         return true;
       },
+      setProfileBackend: (id, backend) => {
+        const profile = profiles.get(id);
+        if (profile) profiles.set(id, { ...profile, backend });
+      },
     });
   });
 
@@ -99,6 +103,7 @@ describe('sessions', () => {
       'https://api.example/profile-a',
       expect.any(Function),
       aId,
+      'legacy',
     );
   });
 

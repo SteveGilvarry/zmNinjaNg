@@ -1,308 +1,55 @@
 /**
- * Server API
+ * Server API - backend dispatcher. See api/groups.ts for the pattern.
  *
- * Handles server information, load, disk usage, and run state management
- * for ZoneMinder servers.
+ * The Server/Storage/ServerLoad/DiskUsage shapes are defined by the legacy
+ * implementation and re-exported here; the v3 mappers produce the same shapes
+ * so the rest of the app stays backend-agnostic.
  */
 
 import type { ApiClient } from './client';
-import { validateApiResponse } from '../lib/zm/api-validator';
-import { tolerantArray, withFieldCatch } from '../lib/zm/schema-tolerance';
-import { z } from 'zod';
-import { log, LogLevel } from '../lib/logger';
-import type { HttpError } from '../lib/http';
+import type { Config } from './types';
+import * as legacy from './legacy/server';
+import * as v3 from './v3/server';
 
-// ========== Schemas ==========
+export type { Server, ServersResponse, Storage, ServerLoad, DiskUsage } from './legacy/server';
+import type { Server, Storage, ServerLoad, DiskUsage } from './legacy/server';
 
-// withFieldCatch + tolerantArray: a drifted field falls back and one bad row
-// drops itself, so a ZoneMinder change never blanks the whole response (rule 43).
-const ServerSchema = z.object(
-  withFieldCatch({
-    Id: z.coerce.string(),
-    Name: z.string(),
-    Hostname: z.string().optional(),
-    State_Id: z.coerce.number().optional(),
-    Status: z.string().optional(),
-    CpuLoad: z.coerce.number().optional(),
-    TotalMem: z.coerce.number().optional(),
-    FreeMem: z.coerce.number().optional(),
-    Protocol: z.string().optional(),
-    Port: z.coerce.number().optional(),
-    PathToIndex: z.string().optional(),
-    PathToZMS: z.string().optional(),
-    PathToApi: z.string().optional(),
-    CpuUserPercent: z.coerce.number().optional(),
-    CpuSystemPercent: z.coerce.number().optional(),
-    CpuIdlePercent: z.coerce.number().optional(),
-    CpuUsagePercent: z.coerce.number().optional(),
-    TotalSwap: z.coerce.number().optional(),
-    FreeSwap: z.coerce.number().optional(),
-    zmstats: z.boolean().optional(),
-    zmaudit: z.boolean().optional(),
-    zmtrigger: z.boolean().optional(),
-    zmeventnotification: z.boolean().optional(),
-  }, ['Id', 'Name']),
-);
-
-const ServersResponseSchema = z.object({
-  servers: tolerantArray(z.object({ Server: ServerSchema }), 'server'),
-});
-
-const LoadSchema = z.object({
-  load: z.union([
-    z.array(z.coerce.number()),
-    z.coerce.number(),
-    z.string().transform((val) => parseFloat(val)),
-  ]),
-});
-
-const DiskPercentSchema = z.object({
-  usage: z
-    .union([
-      // Complex object with monitor disk usage
-      z.record(
-        z.string(),
-        z.object({
-          space: z
-            .union([z.string(), z.number()])
-            .transform((val) => (typeof val === 'string' ? parseFloat(val) : val)),
-          color: z.string().optional(),
-        })
-      ),
-      // Simple number fallback
-      z.coerce.number(),
-    ])
-    .optional(),
-  percent: z.coerce.number().optional(),
-});
-
-const DaemonCheckSchema = z.object({
-  result: z.coerce.number(),
-});
-
-const StorageSchema = z.object(
-  withFieldCatch({
-    Id: z.coerce.string(),
-    Path: z.string().nullable(),
-    Name: z.string(),
-    Type: z.string(),
-    Url: z.string().nullable(),
-    DiskSpace: z.coerce.number().nullable(),
-    Scheme: z.string().nullable(),
-    ServerId: z.coerce.string().nullable(),
-    DoDelete: z.coerce.boolean().optional(),
-    Enabled: z.coerce.boolean().optional(),
-    DiskTotalSpace: z.coerce.number().nullable(),
-    DiskUsedSpace: z.coerce.number().nullable(),
-  }, ['Id', 'Name']),
-);
-
-const StoragesResponseSchema = z.object({
-  storage: tolerantArray(z.object({ Storage: StorageSchema }), 'storage'),
-});
-
-
-// ========== Types ==========
-
-export type Server = z.infer<typeof ServerSchema>;
-export type ServersResponse = z.infer<typeof ServersResponseSchema>;
-export type Storage = z.infer<typeof StorageSchema>;
-
-export interface ServerLoad {
-  load: number | number[];
+export function getServers(client: ApiClient): Promise<Server[]> {
+  return client.backend === 'zmapi-v3' ? v3.getServers(client) : legacy.getServers(client);
 }
 
-export interface DiskUsage {
-  usage?: number;
-  percent?: number;
+export function getStorages(client: ApiClient): Promise<Storage[]> {
+  return client.backend === 'zmapi-v3' ? v3.getStorages(client) : legacy.getStorages(client);
 }
 
+export function getDaemonCheck(client: ApiClient, apiBaseUrl?: string): Promise<boolean> {
+  return client.backend === 'zmapi-v3'
+    ? v3.getDaemonCheck(client, apiBaseUrl)
+    : legacy.getDaemonCheck(client, apiBaseUrl);
+}
 
-// ========== API Functions ==========
+export function getLoad(client: ApiClient, apiBaseUrl?: string): Promise<ServerLoad> {
+  return client.backend === 'zmapi-v3'
+    ? v3.getLoad(client, apiBaseUrl)
+    : legacy.getLoad(client, apiBaseUrl);
+}
+
+export function getDiskPercent(client: ApiClient, apiBaseUrl?: string): Promise<DiskUsage> {
+  return client.backend === 'zmapi-v3'
+    ? v3.getDiskPercent(client, apiBaseUrl)
+    : legacy.getDiskPercent(client, apiBaseUrl);
+}
+
+export function getConfigs(client: ApiClient): Promise<Config[]> {
+  return client.backend === 'zmapi-v3' ? v3.getConfigs(client) : legacy.getConfigs(client);
+}
 
 /**
- * Get all servers
- *
- * Fetches information about all ZoneMinder servers in the system.
- * Includes CPU load, memory usage, and status information.
- *
- * @returns Promise resolving to array of Server objects
+ * Multi-port ZMS streaming is a legacy-only concept - v3 streams from its own
+ * /api/v3/live endpoints - so the v3 implementation always answers null.
  */
-export async function getServers(client: ApiClient): Promise<Server[]> {
-  const response = await client.get('/servers.json');
-
-  const validated = validateApiResponse(ServersResponseSchema, response.data, {
-    endpoint: '/servers.json',
-    method: 'GET',
-  });
-
-  return validated.servers.map((s) => s.Server);
-}
-
-/**
- * Get all storages
- *
- * Fetches storage configuration from ZoneMinder, including paths,
- * disk space, and server associations.
- *
- * @returns Promise resolving to array of Storage objects
- */
-export async function getStorages(client: ApiClient): Promise<Storage[]> {
-  const response = await client.get('/storage.json');
-
-  const validated = validateApiResponse(StoragesResponseSchema, response.data, {
-    endpoint: '/storage.json',
-    method: 'GET',
-  });
-
-  return validated.storage.map((s) => s.Storage);
-}
-
-/**
- * Check if ZoneMinder daemon is running
- *
- * Calls /host/daemonCheck.json to verify if the core service is active.
- *
- * @returns Promise resolving to boolean (true = running, false = stopped)
- */
-export async function getDaemonCheck(client: ApiClient, apiBaseUrl?: string): Promise<boolean> {
-  const config = apiBaseUrl ? { baseURL: apiBaseUrl } : undefined;
-  const response = await client.get('/host/daemonCheck.json', config);
-
-  const validated = validateApiResponse(DaemonCheckSchema, response.data, {
-    endpoint: '/host/daemonCheck.json',
-    method: 'GET',
-  });
-
-  return validated.result === 1;
-}
-
-/**
- * Get server load average
- *
- * Fetches the current system load average (1, 5, 15 min).
-
-/**
- * Get server load average
- *
- * Fetches the current load average for the ZoneMinder server.
- *
- * @returns Promise resolving to ServerLoad object with load value
- */
-export async function getLoad(client: ApiClient, apiBaseUrl?: string): Promise<ServerLoad> {
-  const config = apiBaseUrl ? { baseURL: apiBaseUrl } : undefined;
-  const response = await client.get('/host/getLoad.json', config);
-
-  const validated = validateApiResponse(LoadSchema, response.data, {
-    endpoint: '/host/getLoad.json',
-    method: 'GET',
-  });
-
-  // If load is an array, use the 1-minute average (first element)
-  const loadValue = Array.isArray(validated.load) ? validated.load[0] : validated.load;
-
-  return { load: loadValue };
-}
-
-/**
- * Get disk usage percentage
- *
- * Fetches the current disk usage for the ZoneMinder events storage.
- *
- * @returns Promise resolving to DiskUsage object with usage percentage
- */
-export async function getDiskPercent(client: ApiClient, apiBaseUrl?: string): Promise<DiskUsage> {
-  const config = apiBaseUrl ? { baseURL: apiBaseUrl } : undefined;
-  const response = await client.get('/host/getDiskPercent.json', config);
-
-  const validated = validateApiResponse(DiskPercentSchema, response.data, {
-    endpoint: '/host/getDiskPercent.json',
-    method: 'GET',
-  });
-
-  let usageValue: number | undefined;
-  let percentValue: number | undefined;
-
-  // Handle complex usage object (monitor-specific disk usage)
-  if (validated.usage && typeof validated.usage === 'object' && !Array.isArray(validated.usage)) {
-    // Extract total disk space from "Total" key
-    const totalEntry = (validated.usage as Record<string, { space: number; color?: string }>)['Total'];
-    if (totalEntry) {
-      usageValue = totalEntry.space;
-      // For now, we don't have total capacity to calculate percentage
-      // Return the space usage in GB
-      percentValue = undefined;
-    }
-  } else if (typeof validated.usage === 'number') {
-    usageValue = validated.usage;
-  }
-
-  return {
-    usage: usageValue,
-    percent: validated.percent ?? percentValue ?? usageValue,
-  };
-}
-
-/**
- * Get system configurations
- *
- * Fetches configuration values from the server.
- * Can optionally filter by restart requirement or category.
- *
- * @returns Promise resolving to array of Config objects
- */
-export async function getConfigs(client: ApiClient): Promise<import('./types').Config[]> {
-  const response = await client.get('/configs.json');
-  const { ConfigsResponseSchema } = await import('./types');
-
-  const validated = validateApiResponse(ConfigsResponseSchema, response.data, {
-    endpoint: '/configs.json',
-    method: 'GET',
-  });
-
-  return validated.configs.map((c) => c.Config);
-}
-
-/**
- * Fetch the ZM_MIN_STREAMING_PORT configuration value
- *
- * Returns the minimum streaming port if multi-port streaming is enabled.
- * An empty string indicates multi-port streaming is not configured.
- * Only works after successful authentication.
- *
- * @returns Promise resolving to the port number or null if not configured/fetch fails
- */
-export async function fetchMinStreamingPort(client: ApiClient): Promise<number | null> {
-  try {
-    const response = await client.get<import('./types').MinStreamingPortResponse>(
-      '/configs/viewByName/ZM_MIN_STREAMING_PORT.json',
-      { intent: 'Fetch MIN_STREAMING_PORT config' },
-    );
-
-    const { MinStreamingPortResponseSchema } = await import('./types');
-    const validated = MinStreamingPortResponseSchema.parse(response.data);
-    const portValue = validated.config.Value;
-
-    if (!portValue || portValue === '') {
-      log.api('MIN_STREAMING_PORT not configured (empty value)', LogLevel.DEBUG);
-      return null;
-    }
-
-    const port = parseInt(portValue, 10);
-    if (isNaN(port) || port <= 0) {
-      log.api('MIN_STREAMING_PORT has invalid value', LogLevel.WARN, { portValue });
-      return null;
-    }
-
-    log.api('MIN_STREAMING_PORT fetched successfully', LogLevel.DEBUG, { port });
-    return port;
-  } catch (error: unknown) {
-    const err = error as HttpError & { constructor: { name: string } };
-    log.api('Failed to fetch MIN_STREAMING_PORT from server', LogLevel.WARN, {
-      error: err.constructor.name,
-      message: err.message,
-      status: err.status,
-    });
-    return null;
-  }
+export function fetchMinStreamingPort(client: ApiClient): Promise<number | null> {
+  return client.backend === 'zmapi-v3'
+    ? v3.fetchMinStreamingPort(client)
+    : legacy.fetchMinStreamingPort(client);
 }

@@ -184,7 +184,7 @@ const countEventsTool: ToolDefinition = {
       // singular unit is valid for any count ("2 week").
       const interval = `${Math.floor(count)} ${unit}`;
       const client = getSession(ctx.profileId).client;
-      const [counts, { monitors }] = await Promise.all([getConsoleEvents(client, interval), getMonitors(client, ctx.profileId)]);
+      const [counts, { monitors }] = await Promise.all([getConsoleEvents(client, ctx.profileId, interval), getMonitors(client, ctx.profileId)]);
       const nameById = new Map(monitors.map((m) => [m.Monitor.Id, m.Monitor.Name]));
       const rows = counts
         .filter((c) => nameById.has(c.monitorId))

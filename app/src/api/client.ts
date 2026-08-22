@@ -1,4 +1,5 @@
 import { httpRequest, type HttpError, type HttpOptions, type HttpResponse } from '../lib/http';
+import type { BackendKind } from './types';
 import { API_REQUEST } from '../lib/zmninja-ng-constants';
 import { log, LogLevel } from '../lib/logger';
 import { sanitizeObject } from '../lib/log-sanitizer';
@@ -32,9 +33,12 @@ export interface ApiRequestConfig {
 }
 
 export interface ApiClient {
+  /** Which ZoneMinder backend this client talks to. Read by the api/*.ts dispatchers. */
+  readonly backend: BackendKind;
   get<T = unknown>(url: string, config?: ApiRequestConfig): Promise<HttpResponse<T>>;
   post<T = unknown>(url: string, data?: unknown, config?: ApiRequestConfig): Promise<HttpResponse<T>>;
   put<T = unknown>(url: string, data?: unknown, config?: ApiRequestConfig): Promise<HttpResponse<T>>;
+  patch<T = unknown>(url: string, data?: unknown, config?: ApiRequestConfig): Promise<HttpResponse<T>>;
   delete<T = unknown>(url: string, config?: ApiRequestConfig): Promise<HttpResponse<T>>;
   /**
    * POST a form-encoded body (application/x-www-form-urlencoded). ZM's CakePHP
@@ -106,7 +110,12 @@ export function createApiClient(
   gates: ApiClientGates,
   reLogin?: () => Promise<boolean>,
   profileId?: string,
+  backend: BackendKind = 'legacy',
 ): ApiClient {
+  // v3 (zm-api) authenticates with an Authorization: Bearer header against JSON
+  // auth endpoints; legacy attaches the token as a ?token= query param and logs
+  // in at /host/login.json. Only the three places below differ.
+  const isV3 = backend === 'zmapi-v3';
   // Resolve the default per-request timeout (ms) from the profile setting, used
   // when the caller didn't set one. 0 (or unset) disables it. Read at call time
   // so changes take effect without recreating the client.
@@ -136,7 +145,18 @@ export function createApiClient(
     const params: Record<string, string | number> = { ...(config.params ?? {}) };
 
     const skipAuth = headers['Skip-Auth'] === 'true';
-    const isLoginRequest = url.includes('login.json') && method.toUpperCase() === 'POST';
+    // 'Skip-Auth' is an internal control header consumed here only. It must not
+    // ride on the wire: v3 requests go browser-direct (CORS enforced) and the
+    // server's Access-Control-Allow-Headers does not list it, so leaking it
+    // fails the preflight. Legacy never noticed (proxy/native bypass CORS).
+    delete headers['Skip-Auth'];
+    // Auth endpoints must not have a token attached and must not trigger the
+    // proactive-login / 401-refresh paths, because no token exists yet. Covers
+    // legacy /host/login.json and v3 /api/v3/auth/{login,refresh}.
+    const isLoginRequest =
+      (url.includes('login.json') && method.toUpperCase() === 'POST') ||
+      url.includes('/auth/login') ||
+      url.includes('/auth/refresh');
 
     // PROACTIVE: If not authenticated and not a login request, trigger login first
     if (!gates.auth.isAuthenticated() && !skipAuth && !isLoginRequest && reLogin && !hasRetried) {
@@ -165,6 +185,16 @@ export function createApiClient(
     }
 
     if (accessToken && !skipAuth && !isLoginRequest) {
+      // v3 attaches a Bearer header; legacy uses the ?token= query param. The
+      // Auth-tokens contract forbids tokens in query strings, so only the
+      // grandfathered legacy path does it.
+      const attachToken = (token: string) => {
+        if (isV3) {
+          headers['Authorization'] = `Bearer ${token}`;
+        } else {
+          params.token = token;
+        }
+      };
       const accessTokenExpires = gates.auth.getAccessTokenExpires();
       const isAccessTokenExpired = accessTokenExpires !== null && accessTokenExpires <= Date.now();
       if (isAccessTokenExpired) {
@@ -175,10 +205,10 @@ export function createApiClient(
         );
         const fresh = await gates.auth.getFreshAccessToken();
         if (fresh) {
-          params.token = fresh;
+          attachToken(fresh);
         }
       } else {
-        params.token = accessToken;
+        attachToken(accessToken);
       }
     }
 
@@ -294,9 +324,11 @@ export function createApiClient(
     (fields instanceof URLSearchParams ? fields : new URLSearchParams(fields)).toString();
 
   return {
+    backend,
     get: <T>(url: string, config?: ApiRequestConfig) => request<T>('GET', url, undefined, config),
     post: <T>(url: string, data?: unknown, config?: ApiRequestConfig) => request<T>('POST', url, data, config),
     put: <T>(url: string, data?: unknown, config?: ApiRequestConfig) => request<T>('PUT', url, data, config),
+    patch: <T>(url: string, data?: unknown, config?: ApiRequestConfig) => request<T>('PATCH', url, data, config),
     delete: <T>(url: string, config?: ApiRequestConfig) => request<T>('DELETE', url, undefined, config),
     postForm: <T>(url: string, fields: URLSearchParams | Record<string, string>, config?: ApiRequestConfig) =>
       request<T>('POST', url, toFormBody(fields), formConfig(config)),

@@ -142,7 +142,7 @@ describe('NotificationSettings page - All mode profile picker (refs #337)', () =
     vi.mocked(getSession).mockImplementation((id) => ({
       profileId: id,
       client: { profile: id } as never,
-      timezone: 'UTC',
+      timezone: 'UTC', backend: 'legacy',
     }));
     vi.mocked(useCurrentProfile).mockReturnValue({
       currentProfile: null, settings: {} as never, hasProfile: false, isAllMode: true,

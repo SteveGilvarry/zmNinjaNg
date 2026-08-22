@@ -87,7 +87,7 @@ describe('TimelineWidget - owning-profile timezone buckets (refs #337)', () => {
       mode: 'all', profile: null, profiles: [profileA, profileB], settings: {},
     } as never);
     vi.mocked(getSession).mockImplementation((id) => ({
-      profileId: id, client: clientFor(id), timezone: 'UTC',
+      profileId: id, client: clientFor(id), timezone: 'UTC', backend: 'legacy',
     }));
   });
 

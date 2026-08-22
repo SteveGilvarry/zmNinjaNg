@@ -162,7 +162,8 @@
     "view_events": "Événements",
     "group_by_server": "Grouper par serveur",
     "stream_permission_denied": "Ce compte n'a pas la permission de diffusion.",
-    "no_monitor_permission": "Ce compte n'a aucune permission sur les moniteurs."
+    "no_monitor_permission": "Ce compte n'a aucune permission sur les moniteurs.",
+    "stream_failed": "Flux indisponible"
   },
   "events": {
     "title": "Événements",
@@ -266,7 +267,8 @@
     "delete_permission_denied": "Supprimer des événements exige la permission Events: Edit.",
     "archive_permission_denied": "Archiver des événements exige la permission Events: Edit.",
     "no_event_permission": "Ce compte n'a aucune permission sur les événements.",
-    "event_gone": "Cet évènement n'existe plus sur le serveur"
+    "event_gone": "Cet évènement n'existe plus sur le serveur",
+    "playback_failed": "Lecture indisponible"
   },
   "event_detail": {
     "event_id": "ID Événement",

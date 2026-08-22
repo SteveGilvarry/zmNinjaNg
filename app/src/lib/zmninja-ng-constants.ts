@@ -1171,6 +1171,36 @@ export const DOWNLOAD = {
 } as const;
 
 /**
+ * v3 (zm-api) WebRTC Live Streaming Constants
+ *
+ * Two-stage fallback for the WebRTC-first live path (useV3LiveStream). The
+ * stages distinguish a stuck negotiation from a healthy-but-slow first frame:
+ * measured against the live server, a working stream attaches its track at
+ * ~3s and decodes its first frame at ~4-5s. Heavy streams (4K) under
+ * concurrent/cold-start load occasionally exceed a single short deadline, so
+ * the connect stage falls back fast when no track ever attaches, while the
+ * frame stage waits longer once the connection is up and frames are imminent.
+ */
+
+/**
+ * Seconds to wait for the inbound track to attach (onTrack). If nothing
+ * attaches by here the negotiation is stuck (server never offered, ICE stalled
+ * without a 'failed' event), so fall back to HLS promptly rather than holding a
+ * blank tile for the full frame deadline.
+ */
+export const V3_WEBRTC_CONNECT_TIMEOUT_S = 6;
+
+/**
+ * Seconds to wait for the first decoded frame once the track has attached.
+ * Generous because a connected stream's frames are imminent; matches the
+ * go2rtc path's tolerance for a concurrent montage burst.
+ */
+export const V3_WEBRTC_FRAME_TIMEOUT_S = 14;
+
+/** How often to poll the v3 <video> for an actually-decoded, advancing frame (ms). */
+export const V3_WEBRTC_FRAME_POLL_MS = 250;
+
+/**
  * Discovery Timeouts
  *
  * Network discovery retries and platform permission delays.

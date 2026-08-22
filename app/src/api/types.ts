@@ -686,11 +686,31 @@ export interface VirtualProfile {
   memberProfileIds: ProfileId[];
 }
 
+/**
+ * Which backend a profile talks to:
+ * - 'legacy'   : the classic ZoneMinder CakePHP API + ZMS/CGI streaming stack.
+ * - 'zmapi-v3' : the Rust zm-api, shipping as ZoneMinder API v3 - JSON/JWT REST
+ *                under /api/v3 with WebRTC + HLS streaming. No ZMS/PHP/go2rtc.
+ */
+export type BackendKind = 'legacy' | 'zmapi-v3';
+
 export interface Profile {
   id: ProfileId;
   name: string;
+  /**
+   * Which backend this profile uses, detected by probing the server the first
+   * time the profile connects and cached here. Absent means "not probed yet";
+   * every reader treats that as 'legacy' until the probe resolves.
+   */
+  backend?: BackendKind;
   portalUrl: string;
+  /**
+   * Base API URL. For legacy this is the CakePHP /api root; for zmapi-v3 it is
+   * the zm-api origin (e.g. http://192.168.0.45:8080) - request paths already
+   * include the /api/v3 prefix.
+   */
   apiUrl: string;
+  /** Legacy-only: CGI/ZMS base. Unused in zmapi-v3 mode. */
   cgiUrl: string;
   username?: string;
   password?: string; // encrypted
@@ -699,8 +719,8 @@ export interface Profile {
   createdAt: number;
   lastUsed?: number;
   timezone?: string;
-  minStreamingPort?: number; // ZM_MIN_STREAMING_PORT from server config
-  go2rtcUrl?: string; // ZM_GO2RTC_PATH from server config (full URL)
+  minStreamingPort?: number; // Legacy-only: ZM_MIN_STREAMING_PORT from server config
+  go2rtcUrl?: string; // Legacy-only: ZM_GO2RTC_PATH from server config (full URL)
   /** Excluded from selection and every All-mode aggregate (refs #337). Absent/undefined means enabled - no migration needed for existing persisted profiles. */
   disabled?: boolean;
 }

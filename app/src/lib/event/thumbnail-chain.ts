@@ -1,6 +1,7 @@
 import { getEventImageUrl } from '../../api/events';
+import { v3EventThumbnailUrl } from '../v3-url-builder';
 import { getPortalUrlForEvent } from '../zm/server-resolver';
-import type { ProfileId } from '../../api/types';
+import type { BackendKind, ProfileId } from '../../api/types';
 
 // The chain shape is declared here, next to the code that resolves it, so this
 // module and lib/assistant do not import the settings store (refs #281).
@@ -13,6 +14,12 @@ export interface ThumbnailFallbackEntry {
 }
 
 export interface ThumbnailChainOptions {
+  /**
+   * Which backend serves this event's images. v3 exposes one thumbnail per
+   * event rather than a frame chain, so the fallback list collapses to a
+   * single URL. Defaults to legacy, matching every pre-v3 caller.
+   */
+  backend?: BackendKind;
   token?: string;
   width?: number;
   height?: number;
@@ -83,6 +90,13 @@ export function buildThumbnailChain(
   chain: ThumbnailFallbackEntry[] | undefined,
   options: ThumbnailChainOptions = {}
 ): string[] {
+  // v3 (zm-api) has one thumbnail per event, not a ZoneMinder frame/fid chain,
+  // so there is nothing to fall back through. portalUrl is the v3 base URL for
+  // a v3 profile, and the token rides in the query string because an <img> tag
+  // cannot send an Authorization header.
+  if (options.backend === 'zmapi-v3') {
+    return [v3EventThumbnailUrl(portalUrl, eventId, options.token)];
+  }
   return resolveFallbackFids(chain, options).map((fid) =>
     getEventImageUrl(portalUrl, eventId, fid, options)
   );

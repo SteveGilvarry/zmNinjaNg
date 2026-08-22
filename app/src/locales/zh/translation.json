@@ -162,7 +162,8 @@
     "view_events": "事件",
     "group_by_server": "按服务器分组",
     "stream_permission_denied": "此账户没有视频流权限。",
-    "no_monitor_permission": "此账户没有监视器权限。"
+    "no_monitor_permission": "此账户没有监视器权限。",
+    "stream_failed": "视频流不可用"
   },
   "events": {
     "title": "事件",
@@ -266,7 +267,8 @@
     "delete_permission_denied": "删除事件需要 Events: Edit 权限。",
     "archive_permission_denied": "归档事件需要 Events: Edit 权限。",
     "no_event_permission": "此账户没有事件权限。",
-    "event_gone": "此事件在服务器上已不存在"
+    "event_gone": "此事件在服务器上已不存在",
+    "playback_failed": "无法播放"
   },
   "event_detail": {
     "event_id": "事件 ID",

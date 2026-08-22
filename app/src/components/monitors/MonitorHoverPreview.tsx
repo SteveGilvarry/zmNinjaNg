@@ -17,6 +17,7 @@ import { parseMonitorRotation } from '../../lib/monitor/monitor-rotation';
 import { log } from '../../lib/logger';
 import type { Monitor, ProfileId } from '../../api/types';
 import { HoverPreview } from '../ui/hover-preview';
+import { V3LiveMonitorPlayer } from './V3LiveMonitorPlayer';
 import { VideoOff } from 'lucide-react';
 
 interface MonitorHoverPreviewProps {
@@ -47,12 +48,26 @@ function computeNumericAspectRatio(monitor: Monitor): number {
 
 export function MonitorHoverPreview({ monitor, children, profileId }: MonitorHoverPreviewProps) {
   const aspectRatio = computeNumericAspectRatio(monitor);
+  const { profile } = useProfileById(profileId);
 
   return (
     <HoverPreview
       aspectRatio={aspectRatio}
       testId="monitor-hover-preview"
-      renderPreview={() => <MonitorLivePreview monitor={monitor} profileId={profileId} />}
+      renderPreview={() =>
+        profile?.backend === 'zmapi-v3' ? (
+          // v3 serves no ZMS/CGI MJPEG. Use the WebRTC/HLS player, which shares
+          // the refcounted live session with any other view of this monitor.
+          <V3LiveMonitorPlayer
+            monitor={monitor}
+            profile={profile}
+            className="w-full h-full"
+            objectFit="contain"
+          />
+        ) : (
+          <MonitorLivePreview monitor={monitor} profileId={profileId} />
+        )
+      }
     >
       {children}
     </HoverPreview>

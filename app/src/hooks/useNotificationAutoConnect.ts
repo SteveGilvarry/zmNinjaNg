@@ -110,7 +110,10 @@ export function useNotificationAutoConnect({
       return;
     }
 
-    const mode = settings.notificationMode || 'es';
+    // v3 (zm-api) ships no zmeventnotification ES server, so its only live
+    // path is the event poller ('direct'); honouring a stored 'es' setting
+    // would just retry a websocket nothing is listening on.
+    const mode = profile.backend === 'zmapi-v3' ? 'direct' : settings.notificationMode || 'es';
 
     if (mode === 'direct') {
       if (Platform.isDesktopOrWeb) {
@@ -225,11 +228,16 @@ export function useNotificationAutoConnect({
       if (!profileId) return;
       stopEventPoller(profileId);
     };
-  }, [currentProfile?.id, settings?.notificationMode, settings?.enabled]);
+  }, [currentProfile?.id, currentProfile?.backend, settings?.notificationMode, settings?.enabled]);
 
   // Gate for the ES-mode listeners below. Recomputed each render; the
   // listener hooks re-register only when the resulting boolean changes.
-  const esModeEnabled = !!settings?.enabled && (settings?.notificationMode || 'es') === 'es';
+  // v3 has no ES server (see the mode resolution above), so its ES listeners
+  // stay off regardless of the stored setting.
+  const esModeEnabled =
+    !!settings?.enabled &&
+    (settings?.notificationMode || 'es') === 'es' &&
+    currentProfile?.backend !== 'zmapi-v3';
 
   // Network change listener: reconnect when connectivity is restored
   useEffect(() => {
@@ -261,7 +269,8 @@ export function useNotificationAutoConnect({
 
   // Visibility change listener (desktop/web): check liveness when tab becomes visible
   useEffect(() => {
-    const mode = settings?.notificationMode || 'es';
+    const mode =
+      currentProfile?.backend === 'zmapi-v3' ? 'direct' : settings?.notificationMode || 'es';
     if (!settings?.enabled || mode !== 'es' || Platform.isNative) return;
 
     const handleVisibilityChange = async () => {

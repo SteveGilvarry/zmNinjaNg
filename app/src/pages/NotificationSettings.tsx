@@ -110,21 +110,26 @@ export default function NotificationSettings() {
   const monitors = monitorsData?.monitors || [];
 
   const [isConnecting, setIsConnecting] = useState(false);
-  const [directModeAvailable, setDirectModeAvailable] = useState<boolean | null>(null);
+  const [probedDirectMode, setProbedDirectMode] = useState<boolean | null>(null);
+  // v3 (zm-api) serves no zmeventnotification /notifications.json to probe, and
+  // its "direct" mode is the event poller, which is always available. Derived
+  // rather than probed so there is no request to fire and no state to write.
+  const isV3Backend = currentProfile?.backend === 'zmapi-v3';
+  const directModeAvailable = isV3Backend ? true : probedDirectMode;
 
   // Feature detection: check if ZM server supports Notifications API
   useEffect(() => {
-    if (!currentProfile || !isAuthenticated) return;
+    if (!currentProfile || !isAuthenticated || isV3Backend) return;
 
     checkNotificationsApiSupport(getSession(currentProfile.id).client)
       .then((supported) => {
-        setDirectModeAvailable(supported);
+        setProbedDirectMode(supported);
         log.notificationSettings('ZM Notifications API support check', LogLevel.INFO, { supported });
       })
       .catch(() => {
-        setDirectModeAvailable(false);
+        setProbedDirectMode(false);
       });
-  }, [currentProfile?.id, isAuthenticated]);
+  }, [currentProfile?.id, isV3Backend, isAuthenticated]);
 
   const handleEnableToggle = async (enabled: boolean) => {
     if (!currentProfile) {

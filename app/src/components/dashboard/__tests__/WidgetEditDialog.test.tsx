@@ -80,7 +80,7 @@ describe('WidgetEditDialog', () => {
       profiles: [profileA, profileB],
       settings: {},
     } as never);
-    vi.mocked(getSession).mockImplementation((id) => ({ profileId: id, client: clientFor(id), timezone: 'UTC' }));
+    vi.mocked(getSession).mockImplementation((id) => ({ profileId: id, client: clientFor(id), timezone: 'UTC', backend: 'legacy' }));
     vi.mocked(getMonitors).mockImplementation(async (client) => {
       const id = (client as unknown as { profile: string }).profile;
       return { monitors: [{ Monitor: { Id: '1', Name: `Cam-${id}`, Deleted: false } }] } as never;

@@ -31,6 +31,7 @@ import { Card } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Mp4EventPlayer } from '../components/events/Mp4EventPlayer';
 import { ZmsEventPlayer } from '../components/events/ZmsEventPlayer';
+import { V3EventPlayer } from '../components/events/V3EventPlayer';
 import { EventFrameCarousel } from '../components/events/EventFrameCarousel';
 import { TagChip } from '../components/events/TagChip';
 import { ArrowLeft, Calendar, Clock, HardDrive, AlertTriangle, Download, Archive, ArchiveRestore, Video, Star, Timer, Tag, ChevronLeft, ChevronRight, ChevronsUpDown, Loader2, ListVideo } from 'lucide-react';
@@ -631,7 +632,20 @@ export default function EventDetail() {
       >
         <div className="w-full max-w-5xl space-y-3 sm:space-y-4 md:space-y-6">
           {/* Video Player or ZMS Playback */}
-          {hasVideo ? (
+          {ownerProfile?.backend === 'zmapi-v3' ? (
+            // v3 serves recorded events as HLS from its own endpoints; the ZMS
+            // and MP4 paths below have no v3 equivalent.
+            <div className="overflow-hidden rounded-lg bg-black ring-1 ring-border/20 aspect-video mx-auto w-full">
+              <V3EventPlayer
+                key={event.Event.Id}
+                profileId={ownerProfile.id}
+                eventId={event.Event.Id}
+                baseUrl={ownerProfile.apiUrl}
+                autoplay={settings.eventVideoAutoplay}
+                className="w-full h-full"
+              />
+            </div>
+          ) : hasVideo ? (
             playThroughZms ? (
               // ZMS playback with controls
               ownerProfile && (

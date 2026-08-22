@@ -100,7 +100,7 @@ describe('Dashboard widgets under the ALL_PROFILES_ID sentinel', () => {
     vi.mocked(getSession).mockImplementation((id) => ({
       profileId: id,
       client: clientFor(id),
-      timezone: 'UTC',
+      timezone: 'UTC', backend: 'legacy',
     }));
     vi.mocked(getEvents).mockResolvedValue({ events: [] } as never);
     vi.mocked(getMonitors).mockResolvedValue({ monitors: [] } as never);

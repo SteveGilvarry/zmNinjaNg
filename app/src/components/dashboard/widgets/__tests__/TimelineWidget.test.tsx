@@ -71,7 +71,7 @@ describe('TimelineWidget', () => {
     vi.mocked(getSession).mockImplementation((id) => ({
       profileId: id,
       client: clientFor(id),
-      timezone: 'UTC',
+      timezone: 'UTC', backend: 'legacy',
     }));
   });
 

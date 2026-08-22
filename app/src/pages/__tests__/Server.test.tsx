@@ -94,7 +94,7 @@ describe('Server page - profile picker (refs #337)', () => {
     vi.mocked(getSession).mockImplementation((id) => ({
       profileId: id,
       client: { profile: id } as never,
-      timezone: 'UTC',
+      timezone: 'UTC', backend: 'legacy',
     }));
   });
 

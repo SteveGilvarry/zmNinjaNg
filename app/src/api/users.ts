@@ -37,6 +37,16 @@ export async function fetchAccountPermissions(
 ): Promise<ZmPermissions | undefined> {
   if (!username) return UNRESTRICTED_PERMISSIONS;
 
+  // zm-api (v3) has no equivalent of users.json yet, so nothing can be learned
+  // about this account. Unknown is the designed answer for that: every verdict
+  // stays optimistic and writes fail honestly against the server, which is
+  // strictly better than guessing a level and hiding a control the account
+  // actually has. Revisit when v3 exposes the permission columns.
+  if (client.backend === 'zmapi-v3') {
+    log.api('Backend v3 exposes no account permissions; all verdicts stay unknown', LogLevel.DEBUG);
+    return undefined;
+  }
+
   let response: ZMUsersResponse;
   try {
     const raw = await client.get<ZMUsersResponse>('/users.json', {

@@ -22,6 +22,26 @@ import { NOTIFICATIONS_SERVICE } from '../lib/zmninja-ng-constants';
 import { ZMNotificationService } from './notifications';
 import type { ZMEventServerConfig, ZMAlarmEvent } from '../types/notifications';
 import { resolveProfileForNotification, requestProfileSwitch } from '../lib/profile/notification-profile';
+import { v3EventThumbnailUrl } from '../lib/v3-url-builder';
+
+/**
+ * Build the event preview image for a push notification. v3 serves one
+ * thumbnail per event with the token in the query string; legacy builds a ZMS
+ * index.php image URL. Exported so the URL shape can be tested without a push.
+ */
+export function buildNotificationImageUrl(
+  profile: Profile,
+  eid: string | number,
+  token: string,
+): string {
+  if (profile.backend === 'zmapi-v3') {
+    return v3EventThumbnailUrl(profile.apiUrl, eid, token);
+  }
+  return getEventImageUrl(profile.portalUrl, String(eid), 'snapshot', {
+    token,
+    width: NOTIFICATIONS_SERVICE.snapshotImageWidth,
+  });
+}
 
 /**
  * Store-derived gates for MobilePushService, injected instead of importing
@@ -521,10 +541,7 @@ export class MobilePushService {
     // (we have a valid auth token for the current profile only)
     let imageUrl: string | undefined;
     if (eid && targetProfileId === currentProfileId && targetProfile && accessToken) {
-      imageUrl = getEventImageUrl(targetProfile.portalUrl, String(eid), 'snapshot', {
-        token: accessToken,
-        width: NOTIFICATIONS_SERVICE.snapshotImageWidth,
-      });
+      imageUrl = buildNotificationImageUrl(targetProfile, eid, accessToken);
     }
 
     const monitorName = data?.monitorName || data?.MonitorName || notification.title?.replace(/\s*Alarm.*$/, '') || 'Unknown';
@@ -608,10 +625,7 @@ export class MobilePushService {
       // Only construct image URL if the notification is for the current profile
       let imageUrl: string | undefined;
       if (eid && profileIdForEvent === currentProfileId && targetProfile && accessToken) {
-        imageUrl = getEventImageUrl(targetProfile.portalUrl, String(eid), 'snapshot', {
-          token: accessToken,
-          width: NOTIFICATIONS_SERVICE.snapshotImageWidth,
-        });
+        imageUrl = buildNotificationImageUrl(targetProfile, eid, accessToken);
       }
 
       const monitorName = data?.monitorName || data?.MonitorName || notification.title?.replace(/\s*Alarm.*$/, '') || 'Unknown';

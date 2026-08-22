@@ -52,7 +52,7 @@ describe('useMonitors', () => {
     vi.mocked(getCurrentSession).mockReturnValue({
       profileId,
       client: {} as never,
-      timezone: 'UTC',
+      timezone: 'UTC', backend: 'legacy',
     });
   });
 

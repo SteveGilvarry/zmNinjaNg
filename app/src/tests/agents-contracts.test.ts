@@ -227,10 +227,15 @@ describe('Sessions contract', () => {
   //  - services/discovery.ts, pages/ProfileForm.tsx
   //                          pre-save probe flows: build a client for an
   //                          un-saved profile before it has a session
+  //  - services/backend-probe.ts
+  //                          backend detection: the session registry needs the
+  //                          backend kind to build a session, so this probe
+  //                          cannot use one without a cycle
   const SANCTIONED = [
     'api/store-gates.ts',
     'services/sessions.ts',
     'services/discovery.ts',
+    'services/backend-probe.ts',
     'pages/ProfileForm.tsx',
   ];
 

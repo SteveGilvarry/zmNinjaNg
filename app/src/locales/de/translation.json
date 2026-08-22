@@ -162,7 +162,8 @@
     "view_events": "Ereignisse",
     "group_by_server": "Nach Server gruppieren",
     "stream_permission_denied": "Dieses Konto hat keine Streaming-Berechtigung.",
-    "no_monitor_permission": "Dieses Konto hat keine Monitor-Berechtigungen."
+    "no_monitor_permission": "Dieses Konto hat keine Monitor-Berechtigungen.",
+    "stream_failed": "Stream nicht verfügbar"
   },
   "events": {
     "title": "Ereignisse",
@@ -266,7 +267,8 @@
     "delete_permission_denied": "Zum Löschen von Ereignissen wird Events: Edit benötigt.",
     "archive_permission_denied": "Zum Archivieren von Ereignissen wird Events: Edit benötigt.",
     "no_event_permission": "Dieses Konto hat keine Ereignis-Berechtigungen.",
-    "event_gone": "Dieses Ereignis existiert auf dem Server nicht mehr"
+    "event_gone": "Dieses Ereignis existiert auf dem Server nicht mehr",
+    "playback_failed": "Wiedergabe nicht verfügbar"
   },
   "event_detail": {
     "event_id": "Ereignis ID",

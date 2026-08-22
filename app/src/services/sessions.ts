@@ -15,12 +15,13 @@
  * setProfileSettingsGate registration. Refs #337.
  */
 
-import { ALL_PROFILES_ID, PROBE_PROFILE_ID, isAggregateProfileId, type Profile, type ProfileId } from '../api/types';
+import { ALL_PROFILES_ID, PROBE_PROFILE_ID, isAggregateProfileId, type BackendKind, type Profile, type ProfileId } from '../api/types';
 import type { ApiClient } from '../api/client';
 import { createStoreApiClient, resetAuthGates } from '../api/store-gates';
 import { markSessionActive, markSessionInactive, markAllSessionsInactive } from './session-flags';
 import { clearServerMap, clearAllServerMaps, getServerMap, setServerMap, buildServerMap } from '../lib/zm/server-resolver';
 import { getServers } from '../api/server';
+import { probeBackendKind } from './backend-probe';
 import { log, LogLevel } from '../lib/logger';
 
 // Re-exported so consumers of the session registry (this module's real
@@ -32,12 +33,16 @@ export interface ServerSession {
   profileId: ProfileId;
   client: ApiClient;
   timezone: string;
+  /** Which backend this profile's server speaks. Mirrors client.backend. */
+  backend: BackendKind;
 }
 
 export interface SessionsGate {
   getProfile(id: ProfileId): Profile | undefined;
   getCurrentProfileId(): ProfileId | null;
   reLoginFor(id: ProfileId): () => Promise<boolean>;
+  /** Persist a probed backend kind onto the profile record. */
+  setProfileBackend(id: ProfileId, backend: BackendKind): void;
 }
 
 let gate: SessionsGate = {
@@ -45,6 +50,7 @@ let gate: SessionsGate = {
   getProfile: () => undefined,
   getCurrentProfileId: () => null,
   reLoginFor: () => async () => false,
+  setProfileBackend: () => {},
 };
 
 export function registerSessionsGate(g: SessionsGate): void {
@@ -57,6 +63,10 @@ const sessions = new Map<ProfileId, ServerSession>();
  *  getSession calls for the same freshly-created session doesn't fire the
  *  fetch more than once. */
 const serverMapFetchesInFlight = new Set<ProfileId>();
+
+/** Profiles whose backend probe is in flight, so a burst of getSession calls
+ *  for an unprobed profile only probes once. */
+const backendProbesInFlight = new Set<ProfileId>();
 
 /**
  * Fire-and-forget population of a profile's multi-server map right after its
@@ -78,6 +88,37 @@ function bootstrapServerMapFor(session: ServerSession): void {
       log.profileService('Failed to bootstrap server map for session', LogLevel.WARN, { profileId, error });
     })
     .finally(() => serverMapFetchesInFlight.delete(profileId));
+}
+
+/**
+ * Fire-and-forget backend detection for a profile that has never been probed.
+ *
+ * Session creation is synchronous, so a profile with no stored backend gets a
+ * legacy client first and the probe corrects it. When the probe says v3 the
+ * session is dropped, which forces the next getSession to rebuild the client
+ * with v3 auth and routing. Requests issued in that window went out as legacy;
+ * against a v3 server they 404 and the caller's normal retry lands on the
+ * rebuilt session. Probing once per server and caching on the profile keeps
+ * that window to the first connect only.
+ */
+function bootstrapBackendKindFor(session: ServerSession): void {
+  const { profileId } = session;
+  const profile = gate.getProfile(profileId);
+  if (!profile || profile.backend !== undefined || backendProbesInFlight.has(profileId)) return;
+  backendProbesInFlight.add(profileId);
+  probeBackendKind(profile.apiUrl)
+    .then((backend) => {
+      gate.setProfileBackend(profileId, backend);
+      if (backend !== session.backend) {
+        log.profileService('Backend probe changed session backend; rebuilding', LogLevel.INFO, {
+          profileId,
+          from: session.backend,
+          to: backend,
+        });
+        dropSession(profileId);
+      }
+    })
+    .finally(() => backendProbesInFlight.delete(profileId));
 }
 
 /**
@@ -106,15 +147,22 @@ export function getSession(profileId: ProfileId): ServerSession {
     throw new Error(`getSession: unknown profile ${profileId}`);
   }
 
+  // An unprobed profile starts legacy - the shape every pre-v3 profile had -
+  // and bootstrapBackendKindFor corrects it if the server turns out to be v3.
+  const backend: BackendKind = profile.backend ?? 'legacy';
   const session: ServerSession = {
     profileId,
-    client: createStoreApiClient(profile.apiUrl, gate.reLoginFor(profileId), profileId),
+    client: createStoreApiClient(profile.apiUrl, gate.reLoginFor(profileId), profileId, backend),
     timezone: profile.timezone ?? 'UTC',
+    backend,
   };
   sessions.set(profileId, session);
   markSessionActive(profileId);
-  log.profileService('Session created', LogLevel.DEBUG, { profileId });
-  bootstrapServerMapFor(session);
+  log.profileService('Session created', LogLevel.DEBUG, { profileId, backend });
+  bootstrapBackendKindFor(session);
+  // v3 has no multi-server map: it streams from its own /api/v3 endpoints
+  // rather than a Servers table of ZMS hosts.
+  if (backend === 'legacy') bootstrapServerMapFor(session);
   return session;
 }
 

@@ -162,7 +162,8 @@
     "view_events": "Events",
     "group_by_server": "Group by server",
     "stream_permission_denied": "No streaming permission for this account.",
-    "no_monitor_permission": "This account has no monitor permissions."
+    "no_monitor_permission": "This account has no monitor permissions.",
+    "stream_failed": "Stream unavailable"
   },
   "events": {
     "title": "Events",
@@ -266,7 +267,8 @@
     "delete_permission_denied": "Deleting events needs Events: Edit permission.",
     "archive_permission_denied": "Archiving events needs Events: Edit permission.",
     "no_event_permission": "This account has no event permissions.",
-    "event_gone": "This event no longer exists on the server"
+    "event_gone": "This event no longer exists on the server",
+    "playback_failed": "Playback unavailable"
   },
   "event_detail": {
     "event_id": "Event ID",

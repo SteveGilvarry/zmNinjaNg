@@ -109,6 +109,7 @@ function sessionFor(p: typeof profileA) {
     profileId: p.id,
     client: { profile: p.id } as unknown as import('../../api/client').ApiClient,
     timezone: p.timezone,
+    backend: 'legacy' as const,
   };
 }
 

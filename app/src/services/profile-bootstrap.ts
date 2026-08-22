@@ -301,10 +301,29 @@ export async function bootstrapSSLTrust(
   }
 }
 
+/**
+ * Bootstrap a v3 (zm-api) profile.
+ *
+ * Every legacy step below - the ZMS path, go2rtc, multi-port streaming, the
+ * multi-server map - reads legacy server config that v3 does not serve; v3
+ * streams from its own /api/v3/live endpoints instead. So this authenticates,
+ * records the server version, and stops.
+ */
+async function performBootstrapV3(profile: Profile, context: BootstrapContext): Promise<void> {
+  await bootstrapSSLTrust(profile);
+  // loginV3 fills the version fields the auth store records, so there is no
+  // separate version step here.
+  await bootstrapAuth(profile, context);
+}
+
 export async function performBootstrap(
   profile: Profile,
   context: BootstrapContext
 ): Promise<void> {
+  if (profile.backend === 'zmapi-v3') {
+    return performBootstrapV3(profile, context);
+  }
+
   const { clearServerMap } = await import('../lib/zm/server-resolver');
   // Clears only THIS profile's entry - refs #337. Clearing the whole map
   // here (the old behavior) wiped every other profile's routes on every

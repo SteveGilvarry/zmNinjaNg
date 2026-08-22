@@ -81,7 +81,16 @@ export async function httpRequest<T = unknown>(
     };
   }
 
-  if (Platform.shouldUseProxy && (url.startsWith('http://') || url.startsWith('https://'))) {
+  // The dev proxy works around legacy ZoneMinder's lack of CORS. The zm-api (v3)
+  // backend sets proper CORS headers (including Authorization), so v3 requests go
+  // direct - routing them through the proxy would drop the Authorization header
+  // and fail the preflight.
+  const isV3Request = url.includes('/api/v3/');
+  if (
+    Platform.shouldUseProxy &&
+    !isV3Request &&
+    (url.startsWith('http://') || url.startsWith('https://'))
+  ) {
     // Extract the base URL to use as X-Target-Host
     const urlObj = new URL(url);
     const baseUrl = `${urlObj.protocol}//${urlObj.host}`;

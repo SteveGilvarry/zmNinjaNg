@@ -14,7 +14,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Profile, ProfileId, VirtualProfile } from '../api/types';
+import type { BackendKind, Profile, ProfileId, VirtualProfile } from '../api/types';
 import { asProfileId, isAggregateProfileId, isVirtualProfileId, mintVirtualProfileId } from '../api/types';
 import { getServerTimeZone } from '../api/time';
 import { ProfileService } from '../services/profile';
@@ -70,6 +70,7 @@ interface ProfileState {
   // Actions
   addProfile: (profile: Omit<Profile, 'id' | 'createdAt'>, id?: ProfileId) => Promise<string>;
   updateProfile: (id: string, updates: Partial<Profile>) => Promise<void>;
+  setProfileBackend: (id: ProfileId, backend: BackendKind) => void;
   deleteProfile: (id: string) => Promise<void>;
   deleteAllProfiles: () => Promise<void>;
   addVirtualProfile: (name: string, memberProfileIds: ProfileId[]) => ProfileId;
@@ -264,6 +265,22 @@ export const useProfileStore = create<ProfileState>()(
           }
 
           log.profileService('updateProfile complete', LogLevel.INFO);
+        },
+
+        /**
+         * Record which backend a profile's server speaks, as detected by
+         * services/backend-probe.ts.
+         *
+         * Deliberately not routed through updateProfile: this runs from the
+         * session registry's probe callback, and updateProfile is async, does
+         * password work, and evicts sessions on connection changes. Dropping
+         * the session when the kind actually changed is the caller's job
+         * (sessions.ts does it), so this stays a plain synchronous write.
+         */
+        setProfileBackend: (id, backend) => {
+          set((state) => ({
+            profiles: state.profiles.map((p) => (p.id === id ? { ...p, backend } : p)),
+          }));
         },
 
         /**
@@ -796,6 +813,7 @@ registerSessionsGate({
     useAuthStore.getState().setReLoginCallback(id, doReLogin);
     return doReLogin;
   },
+  setProfileBackend: (id, backend) => useProfileStore.getState().setProfileBackend(id, backend),
 });
 
 // lib/zm/server-resolver.ts has no store imports for the same reason

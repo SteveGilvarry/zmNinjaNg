@@ -130,7 +130,7 @@ describe('AskPanel - All mode version probe uses the pinned session (refs #337)'
       mode: 'all', aggregateId: ALL_PROFILES_ID, aggregateName: null, profile: null, profiles: [profileA, profileB], settings: baseSettings as never,
     });
     vi.mocked(getSession).mockImplementation((id) => ({
-      profileId: id, client: clientFor(id) as never, timezone: 'UTC',
+      profileId: id, client: clientFor(id) as never, timezone: 'UTC', backend: 'legacy',
     }));
     vi.mocked(getVersion).mockResolvedValue({ version: '1.36.0' } as never);
   });

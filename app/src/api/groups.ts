@@ -1,32 +1,17 @@
 /**
- * Groups API
+ * Groups API - backend dispatcher.
  *
- * Handles fetching monitor groups from ZoneMinder.
- * Groups are hierarchical (parent/child) and monitors can belong to multiple groups.
+ * Forwards to the legacy (CakePHP) or v3 (zm-api) implementation based on the
+ * backend the caller's client is bound to. Every api/*.ts module in this
+ * directory follows the same shape: the client carries its backend, so callers
+ * never choose an implementation themselves.
  */
 
 import type { ApiClient } from './client';
 import type { GroupsResponse } from './types';
-import { GroupsResponseSchema } from './types';
-import { validateApiResponse } from '../lib/zm/api-validator';
+import * as legacy from './legacy/groups';
+import * as v3 from './v3/groups';
 
-/**
- * Get all monitor groups.
- *
- * Fetches the list of all groups from /groups.json.
- * Each group contains its metadata and an array of monitor references.
- *
- * @param client - API client for the target profile
- * @returns Promise resolving to GroupsResponse containing array of groups
- */
-export async function getGroups(client: ApiClient): Promise<GroupsResponse> {
-  const response = await client.get<GroupsResponse>('/groups.json', {
-    intent: 'Fetch groups list',
-  });
-
-  // Validate response with Zod
-  return validateApiResponse(GroupsResponseSchema, response.data, {
-    endpoint: '/groups.json',
-    method: 'GET',
-  });
+export function getGroups(client: ApiClient): Promise<GroupsResponse> {
+  return client.backend === 'zmapi-v3' ? v3.getGroups(client) : legacy.getGroups(client);
 }

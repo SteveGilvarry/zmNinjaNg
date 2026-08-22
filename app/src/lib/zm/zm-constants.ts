@@ -181,3 +181,15 @@ export const ZM_API_DATETIME_FORMAT = 'yyyy-MM-dd HH:mm:ss';
  * so anything drawing zone coordinates decides the same way.
  */
 export const ZONE_PERCENT_MAX = 100;
+
+/**
+ * zm-api (ZoneMinder API v3) route prefix. Every v3 request path starts here,
+ * appended to the profile's apiUrl origin.
+ */
+export const V3_API_PREFIX = '/api/v3';
+
+/**
+ * Unauthenticated liveness route that only the v3 backend serves. Its presence
+ * is how services/backend-probe.ts tells a v3 server from a legacy one.
+ */
+export const V3_HEALTH_CHECK_PATH = `${V3_API_PREFIX}/server/health_check`;

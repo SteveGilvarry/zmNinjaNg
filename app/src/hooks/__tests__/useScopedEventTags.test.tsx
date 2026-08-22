@@ -70,7 +70,7 @@ describe('useScopedEventTagMapping', () => {
     vi.mocked(getSession).mockImplementation((id) => ({
       profileId: id,
       client: { profile: id } as unknown as import('../../api/client').ApiClient,
-      timezone: 'UTC',
+      timezone: 'UTC', backend: 'legacy',
     }));
   });
 
@@ -219,7 +219,7 @@ describe('useScopedTags', () => {
     vi.mocked(getSession).mockImplementation((id) => ({
       profileId: id,
       client: { profile: id } as unknown as import('../../api/client').ApiClient,
-      timezone: 'UTC',
+      timezone: 'UTC', backend: 'legacy',
     }));
     // The real extractUniqueTags dedupes the API's tag-per-event rows; the
     // fetch mock below already returns a flat list, so pass it through.
