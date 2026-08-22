@@ -23,6 +23,8 @@ vi.mock('../legacy/tags');
 vi.mock('../v3/tags');
 vi.mock('../legacy/server');
 vi.mock('../v3/server');
+vi.mock('../legacy/users');
+vi.mock('../v3/users');
 
 import * as legacyMonitors from '../legacy/monitors';
 import * as v3Monitors from '../v3/monitors';
@@ -36,6 +38,8 @@ import * as legacyTags from '../legacy/tags';
 import * as v3Tags from '../v3/tags';
 import * as legacyServer from '../legacy/server';
 import * as v3Server from '../v3/server';
+import * as legacyUsers from '../legacy/users';
+import * as v3Users from '../v3/users';
 
 import { getMonitors, getMonitor, setMonitorEnabled } from '../monitors';
 import { getEvents, deleteEvent } from '../events';
@@ -43,6 +47,7 @@ import { getGroups } from '../groups';
 import { changeState } from '../states';
 import { getTags } from '../tags';
 import { getServers } from '../server';
+import { fetchAccountPermissions } from '../users';
 
 const profileId = asProfileId('p1');
 
@@ -117,6 +122,12 @@ const CASES: Array<{
     call: (c) => getServers(c),
     legacy: () => vi.mocked(legacyServer.getServers),
     v3: () => vi.mocked(v3Server.getServers),
+  },
+  {
+    name: 'users.fetchAccountPermissions',
+    call: (c) => fetchAccountPermissions(c, 'viewer'),
+    legacy: () => vi.mocked(legacyUsers.fetchAccountPermissionsLegacy),
+    v3: () => vi.mocked(v3Users.fetchAccountPermissionsV3),
   },
 ];
 

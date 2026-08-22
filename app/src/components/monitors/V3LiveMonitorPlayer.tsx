@@ -12,7 +12,9 @@ import type { Monitor, Profile } from '../../api/types';
 import { PROBE_PROFILE_ID } from '../../api/types';
 import { useV3LiveStream } from '../../hooks/useV3LiveStream';
 import { getRotatedMediaStyle } from '../../lib/monitor-rotation';
-import { VideoOff } from 'lucide-react';
+import { usePermissions } from '../../hooks/usePermissions';
+import { canViewStream } from '../../lib/permissions/zm-permissions';
+import { VideoOff, ShieldOff } from 'lucide-react';
 
 export interface V3LiveMonitorPlayerProps {
   monitor: Monitor;
@@ -41,6 +43,13 @@ export function V3LiveMonitorPlayer({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const baseUrl = profile?.apiUrl ?? '';
 
+  // Only a denial closes the gate. On v3 this is usually a real answer, since
+  // /api/v3/me reports Stream for every account; on legacy the column is often
+  // unknown, and unknown must keep streaming or an account that may stream
+  // loses video for no reason.
+  const { permissions } = usePermissions(profile?.id);
+  const streamDenied = canViewStream(permissions) === 'denied';
+
   const { status, protocol, error } = useV3LiveStream({
     // The owning profile, not the current one: an All-mode montage tile streams
     // from the server its monitor belongs to.
@@ -48,7 +57,7 @@ export function V3LiveMonitorPlayer({
     monitorId: monitor.Id,
     baseUrl,
     videoRef,
-    enabled: !!baseUrl && !!profile,
+    enabled: !!baseUrl && !!profile && !streamDenied,
   });
 
   // Surface the chosen protocol and a load signal to the parent.
@@ -64,6 +73,20 @@ export function V3LiveMonitorPlayer({
   useEffect(() => {
     if (externalMediaRef) externalMediaRef.current = videoRef.current;
   }, [externalMediaRef]);
+
+  // Ahead of the error branch: a refusal is not a stream failure, and saying
+  // "unavailable" would send the user hunting for a problem with the server.
+  if (streamDenied) {
+    return (
+      <div
+        className={`flex flex-col items-center justify-center gap-2 bg-muted/30 p-3 text-center ${className}`}
+        data-testid="v3-video-player-no-permission"
+      >
+        <ShieldOff className="h-8 w-8 text-muted-foreground/40" aria-hidden="true" />
+        <p className="text-xs text-muted-foreground">{t('monitors.stream_permission_denied')}</p>
+      </div>
+    );
+  }
 
   if (error) {
     return (

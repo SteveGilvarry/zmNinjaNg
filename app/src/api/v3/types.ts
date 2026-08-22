@@ -336,3 +336,34 @@ export const ServerResponseSchema = z
   .passthrough();
 export type ServerResponse = z.infer<typeof ServerResponseSchema>;
 export const PaginatedServersResponseSchema = paginated(ServerResponseSchema);
+
+// ── Me (the caller's own account) ────────────────────────────────────────────
+/**
+ * The permission columns on a ZoneMinder Users row, as zm-api serializes them.
+ * Each is the enum's name - "None" / "View" / "Edit" / "Create" - so the same
+ * strings legacy's users.json returns. Left as plain strings here and narrowed
+ * by parsePermissionLevel, which reports anything unrecognized as unknown
+ * rather than letting a new level read as a denial.
+ */
+export const MeUserResponseSchema = z
+  .object({
+    id: z.coerce.number(),
+    username: z.string(),
+    system: z.string().nullable().optional(),
+    monitors: z.string().nullable().optional(),
+    stream: z.string().nullable().optional(),
+    events: z.string().nullable().optional(),
+    control: z.string().nullable().optional(),
+    groups: z.string().nullable().optional(),
+    devices: z.string().nullable().optional(),
+    snapshots: z.string().nullable().optional(),
+  })
+  .passthrough();
+export type MeUserResponse = z.infer<typeof MeUserResponseSchema>;
+
+export const MeResponseSchema = z
+  .object({
+    user: MeUserResponseSchema,
+  })
+  .passthrough();
+export type MeResponse = z.infer<typeof MeResponseSchema>;
