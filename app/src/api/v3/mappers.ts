@@ -59,6 +59,34 @@ function pick<T extends string>(allowed: readonly T[], value: unknown): T | unde
  * v3 payload doesn't carry are defaulted to null/0, matching how the legacy API
  * returns optional columns.
  */
+/**
+ * ZoneMinder's canonical Orientation values, which the app's
+ * lib/monitor-rotation.ts parses.
+ *
+ * zm-api serializes this column with serde, so it emits the Rust variant name
+ * ("Rotate90") rather than the value stored in the database and used
+ * everywhere else in ZoneMinder ("ROTATE_90"). Left alone, parseMonitorRotation
+ * uppercases that to "ROTATE90", finds no "ROTATE_" prefix, and parseInt
+ * returns NaN - so the rotation reads as unknown and a rotated camera renders
+ * upright. Normalizing here keeps the rest of the app on one spelling.
+ *
+ * An unrecognized value passes through untouched: inventing a rotation for
+ * something we do not understand is worse than rendering it unrotated.
+ */
+const V3_ORIENTATION_ALIASES: Record<string, string> = {
+  rotate0: 'ROTATE_0',
+  rotate90: 'ROTATE_90',
+  rotate180: 'ROTATE_180',
+  rotate270: 'ROTATE_270',
+  fliphori: 'FLIP_HORI',
+  flipvert: 'FLIP_VERT',
+};
+
+function normalizeOrientation(value: string | null | undefined): string | null {
+  if (!value) return null;
+  return V3_ORIENTATION_ALIASES[value.trim().toLowerCase().replace(/_/g, '')] ?? value;
+}
+
 export function mapMonitor(m: MonitorResponse): Monitor {
   const capturing = pick(CAPTURING, m.capturing);
   const enabled = capturing === 'None' || m.deleted === 1 ? '0' : '1';
@@ -96,7 +124,7 @@ export function mapMonitor(m: MonitorResponse): Monitor {
     Height: m.height,
     Colours: m.colours ?? 3,
     Palette: null,
-    Orientation: m.orientation ?? null,
+    Orientation: normalizeOrientation(m.orientation),
     Deinterlacing: null,
     DecoderHWAccelName: null,
     DecoderHWAccelDevice: null,
@@ -212,7 +240,7 @@ export function mapEvent(e: EventResponse): AppEvent {
     Executed: e.executed ?? 0,
     Notes: e.notes ?? null,
     StateId: e.state_id ?? null,
-    Orientation: e.orientation ?? null,
+    Orientation: normalizeOrientation(e.orientation),
     DiskSpace: e.disk_space ?? null,
     Scheme: e.scheme ?? null,
   });

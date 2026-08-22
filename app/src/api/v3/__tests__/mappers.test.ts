@@ -279,3 +279,47 @@ describe('mapZone / mapGroup / mapState / mapTag / mapLog', () => {
     expect(s.Hostname).toBeUndefined();
   });
 });
+
+describe('orientation normalization', () => {
+  /**
+   * zm-api serializes the Orientation enum with serde, which emits the Rust
+   * variant name ("Rotate90"). ZoneMinder's own column - and sea_orm's
+   * string_value for the same variant - is "ROTATE_90", which is what the app's
+   * parseMonitorRotation and every other consumer expect. Observed against a
+   * live server: 4K cameras with Rotate90 rendered unrotated, because
+   * parseInt("ROTATE90") is NaN and the rotation read as unknown.
+   */
+  const CASES: Array<[string, string]> = [
+    ['Rotate0', 'ROTATE_0'],
+    ['Rotate90', 'ROTATE_90'],
+    ['Rotate180', 'ROTATE_180'],
+    ['Rotate270', 'ROTATE_270'],
+    ['FlipHori', 'FLIP_HORI'],
+    ['FlipVert', 'FLIP_VERT'],
+  ];
+
+  it.each(CASES)('maps monitor orientation %s to %s', (from, to) => {
+    expect(mapMonitor({ id: 1, name: 'm', orientation: from } as never).Orientation).toBe(to);
+  });
+
+  it.each(CASES)('maps event orientation %s to %s', (from, to) => {
+    const event = { id: 1, monitor_id: 1, name: 'Event-1', orientation: from };
+    expect(mapEvent(event as never).Orientation).toBe(to);
+  });
+
+  it('passes through a value that is already canonical', () => {
+    expect(mapMonitor({ id: 1, name: 'm', orientation: 'ROTATE_90' } as never).Orientation).toBe(
+      'ROTATE_90',
+    );
+  });
+
+  it('leaves an unrecognized value alone rather than inventing a rotation', () => {
+    expect(mapMonitor({ id: 1, name: 'm', orientation: 'Sideways' } as never).Orientation).toBe(
+      'Sideways',
+    );
+  });
+
+  it('keeps a missing orientation null', () => {
+    expect(mapMonitor({ id: 1, name: 'm' } as never).Orientation).toBeNull();
+  });
+});

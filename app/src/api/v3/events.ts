@@ -186,3 +186,43 @@ export async function getConsoleEvents(
     .filter(({ monitor_id }) => !excluded.has(String(monitor_id)))
     .map(({ monitor_id, count }) => ({ monitorId: String(monitor_id), count }));
 }
+
+/**
+ * How many events a monitor has recorded since a watermark, and the newest
+ * one's timestamp. Backs the new-event badge on monitor tiles.
+ *
+ * Only the count and the newest timestamp are needed, so this asks for a single
+ * event sorted newest-first and reads the total off the pagination envelope.
+ */
+export async function getMonitorEventsSince(
+  client: ApiClient,
+  monitorId: string,
+  since: string | null,
+): Promise<{ count: number; newest: string | null }> {
+  const params: Record<string, string | number> = {
+    monitor_id: monitorId,
+    page: 1,
+    page_size: 1,
+    sort: 'start_time',
+    direction: 'desc',
+  };
+  // No watermark means this is the first poll for the monitor: ask for its
+  // newest event outright rather than filtering from the beginning of time.
+  if (since !== null) params.start_time = toV3Timestamp(since);
+
+  const response = await client.get('/api/v3/events', {
+    params,
+    intent: `Count events for monitor ${monitorId} since ${since ?? 'the beginning'}`,
+  });
+  const page = PaginatedEventsResponseSchema.parse(response.data);
+
+  const newest = page.items[0] ? mapEventData(page.items[0]).Event.StartDateTime : null;
+
+  log.api('Counted new events for monitor (v3)', LogLevel.DEBUG, {
+    monitorId,
+    since,
+    count: page.total,
+  });
+
+  return { count: page.total, newest };
+}

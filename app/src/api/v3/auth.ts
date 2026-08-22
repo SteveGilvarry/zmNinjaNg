@@ -55,8 +55,13 @@ export async function loginV3(
   // it here and fill the same fields. This keeps the auth store's one path for
   // recording version working for both backends. Display-only, so a failure
   // must not fail the login.
+  //
+  // The token has to be passed explicitly: the store records it only once this
+  // function returns, so an ordinary request would read "not authenticated",
+  // trigger the client's proactive-login path, and dedup onto the very login
+  // waiting here - deadlocking until the bootstrap timeout.
   try {
-    const version = await getVersionV3(client);
+    const version = await getVersionV3(client, token.access_token);
     login.version = version.version;
     login.apiversion = version.apiversion;
   } catch (error) {
@@ -77,10 +82,19 @@ export async function refreshTokenV3(
   return tokenToLoginResponse(token);
 }
 
+/**
+ * @param token - The access token to use, for callers that hold one the auth
+ *   store does not know about yet. Only the login flow needs this; see the
+ *   note in loginV3.
+ */
 export async function getVersionV3(
   client: ApiClient,
+  token?: string,
 ): Promise<VersionResponse> {
-  const response = await client.get(`${V3_HOST_PREFIX}/getVersion`);
+  const config = token
+    ? { headers: { 'Skip-Auth': 'true', Authorization: `Bearer ${token}` } }
+    : {};
+  const response = await client.get(`${V3_HOST_PREFIX}/getVersion`, config);
   const v = V3VersionResponseSchema.parse(response.data);
   return { version: v.version, apiversion: v.api_version };
 }

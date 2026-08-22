@@ -4,8 +4,7 @@
  * The event media URL helpers (getEventImageUrl / getEventVideoUrl /
  * getEventZmsUrl) build legacy ZMS and index.php URLs. v3 has no analog - its
  * playback goes through the v3 player - so both backends share the legacy
- * builders and v3 callers simply do not use them. getMonitorEventsSince is
- * likewise legacy-only: it backs the legacy event poller.
+ * builders and v3 callers simply do not use them.
  */
 
 import type { ApiClient } from './client';
@@ -58,6 +57,20 @@ export function setEventArchived(
     : legacy.setEventArchived(client, eventId, archived);
 }
 
+/**
+ * Backs the new-event badge on monitor tiles, so it runs on every montage
+ * poll - one call per visible monitor. Both backends implement it.
+ */
+export function getMonitorEventsSince(
+  client: ApiClient,
+  monitorId: string,
+  since: string | null,
+): Promise<{ count: number; newest: string | null }> {
+  return client.backend === 'zmapi-v3'
+    ? v3.getMonitorEventsSince(client, monitorId, since)
+    : legacy.getMonitorEventsSince(client, monitorId, since);
+}
+
 export function getConsoleEvents(
   client: ApiClient,
   profileId: ProfileId,
@@ -68,7 +81,6 @@ export function getConsoleEvents(
     : legacy.getConsoleEvents(client, interval);
 }
 
-export const getMonitorEventsSince = legacy.getMonitorEventsSince;
 export const getEventImageUrl = legacy.getEventImageUrl;
 export const getEventVideoUrl = legacy.getEventVideoUrl;
 export const getEventZmsUrl = legacy.getEventZmsUrl;

@@ -42,7 +42,7 @@ import * as legacyUsers from '../legacy/users';
 import * as v3Users from '../v3/users';
 
 import { getMonitors, getMonitor, setMonitorEnabled } from '../monitors';
-import { getEvents, deleteEvent } from '../events';
+import { getEvents, deleteEvent, getMonitorEventsSince } from '../events';
 import { getGroups } from '../groups';
 import { changeState } from '../states';
 import { getTags } from '../tags';
@@ -98,6 +98,12 @@ const CASES: Array<{
     call: (c) => deleteEvent(c, '9'),
     legacy: () => vi.mocked(legacyEvents.deleteEvent),
     v3: () => vi.mocked(v3Events.deleteEvent),
+  },
+  {
+    name: 'events.getMonitorEventsSince',
+    call: (c) => getMonitorEventsSince(c, '3', null),
+    legacy: () => vi.mocked(legacyEvents.getMonitorEventsSince),
+    v3: () => vi.mocked(v3Events.getMonitorEventsSince),
   },
   {
     name: 'groups.getGroups',
