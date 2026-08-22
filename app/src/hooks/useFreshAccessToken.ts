@@ -1,8 +1,9 @@
 /**
  * useFreshAccessToken
  *
- * Returns an access token only when it has at least
- * `ZM_INTEGRATION.accessTokenLeewayMs` of validity remaining. Otherwise
+ * Returns an access token only when it has enough validity remaining, which
+ * is derived from the token's own lifetime (see token-freshness.ts, since the
+ * two backends' tokens differ by an order of magnitude). Otherwise
  * returns `{ token: null, isFresh: false }` and asks the auth store to
  * refresh in the background. Subscribers re-render once the new token
  * lands.
@@ -24,7 +25,7 @@
 import { useEffect } from 'react';
 import { useAuthStore, useAuthSlice } from '../stores/auth';
 import { useProfileById } from './useCurrentProfile';
-import { ZM_INTEGRATION } from '../lib/zmninja-ng-constants';
+import { resolveAccessTokenLeewayMs } from '../lib/security/token-freshness';
 import type { ProfileId } from '../api/types';
 
 export interface FreshAccessToken {
@@ -38,13 +39,14 @@ export interface FreshAccessToken {
 export function useFreshAccessToken(profileId?: ProfileId | null): FreshAccessToken {
   const { profile } = useProfileById(profileId);
   const effectiveProfileId = profile?.id ?? null;
-  const { accessToken, accessTokenExpires, requiresAuth } = useAuthSlice(effectiveProfileId);
+  const { accessToken, accessTokenExpires, accessTokenLifetimeMs, requiresAuth } =
+    useAuthSlice(effectiveProfileId);
   const getFreshAccessToken = useAuthStore((state) => state.getFreshAccessToken);
 
   const tokenValid =
     !!accessToken &&
     !!accessTokenExpires &&
-    accessTokenExpires - Date.now() > ZM_INTEGRATION.accessTokenLeewayMs;
+    accessTokenExpires - Date.now() > resolveAccessTokenLeewayMs(accessTokenLifetimeMs);
 
   // A no-auth server needs no token, so it is always "fresh". Only servers that
   // use auth gate on a valid token (and trigger a background refresh otherwise).

@@ -106,23 +106,24 @@ describe('session backend detection', () => {
   });
 
   it('uses the stored backend without probing again', async () => {
-    profiles.set(id, makeProfile({ backend: 'zmapi-v3' }));
+    // Legacy, so this also pins that an explicit opt-out survives the v3 default.
+    profiles.set(id, makeProfile({ backend: 'legacy' }));
 
     const session = getSession(id);
 
-    expect(session.backend).toBe('zmapi-v3');
-    expect(session.client.backend).toBe('zmapi-v3');
+    expect(session.backend).toBe('legacy');
+    expect(session.client.backend).toBe('legacy');
     await flush();
     // A profile that already knows its backend must not spend a request
     // rediscovering it on every session build.
     expect(get).not.toHaveBeenCalled();
   });
 
-  it('starts an unprobed profile on legacy, then records the probed answer', async () => {
+  it('starts an unprobed profile on the v3 default, then records the probed answer', async () => {
     get.mockResolvedValue({ data: {} });
 
-    // Session is built synchronously, so the first client can only be legacy.
-    expect(getSession(id).backend).toBe('legacy');
+    // Session is built synchronously, so the first client takes the default.
+    expect(getSession(id).backend).toBe('zmapi-v3');
 
     await flush();
 
@@ -130,26 +131,29 @@ describe('session backend detection', () => {
   });
 
   it('drops the session when the probe contradicts it, so the client is rebuilt', async () => {
-    get.mockResolvedValue({ data: {} });
+    // No v3 health check here, so the server is legacy - the opposite of what
+    // the default assumed.
+    get.mockRejectedValue({ status: 404 });
 
     getSession(id);
     expect(hasSession(id)).toBe(true);
 
     await flush();
 
-    // Evicted, so the next getSession builds a client with v3 auth and routing
-    // rather than leaving a legacy client pointed at a v3 server.
+    // Evicted, so the next getSession builds a client with legacy auth and
+    // routing rather than leaving a v3 client pointed at a CakePHP server.
     expect(hasSession(id)).toBe(false);
-    expect(getSession(id).backend).toBe('zmapi-v3');
+    expect(getSession(id).backend).toBe('legacy');
+    expect(profiles.get(id)?.backend).toBe('legacy');
   });
 
-  it('keeps the session when the probe agrees it is legacy', async () => {
-    get.mockRejectedValue({ status: 404 });
+  it('keeps the session when the probe agrees with the default', async () => {
+    get.mockResolvedValue({ data: {} });
 
     const session = getSession(id);
     await flush();
 
-    expect(profiles.get(id)?.backend).toBe('legacy');
+    expect(profiles.get(id)?.backend).toBe('zmapi-v3');
     expect(hasSession(id)).toBe(true);
     expect(getSession(id)).toBe(session);
   });

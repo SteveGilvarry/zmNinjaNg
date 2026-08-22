@@ -16,7 +16,7 @@ import {
   type ApiClient,
   type ApiClientGates,
 } from './client';
-import type { BackendKind } from './types';
+import { DEFAULT_BACKEND, type BackendKind } from './types';
 
 // Re-exported so services/sessions.ts (which cannot statically import
 // stores/auth.ts - that would cycle back through this module) can still
@@ -45,7 +45,7 @@ export function createStoreApiClient(
   baseURL: string,
   reLogin: (() => Promise<boolean>) | undefined,
   profileId: ProfileId,
-  backend: BackendKind = 'legacy',
+  backend: BackendKind = DEFAULT_BACKEND,
 ): ApiClient {
   return createApiClient(baseURL, makeProfileGates(profileId), reLogin, profileId, backend);
 }

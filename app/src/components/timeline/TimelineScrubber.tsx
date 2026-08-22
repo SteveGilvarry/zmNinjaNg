@@ -17,7 +17,7 @@ import { EventZmsHoverPlayer } from '../events/EventThumbnailHoverPreview';
 import { resolveMinStreamingPort } from '../../lib/monitor/multiport';
 import { useProfileById } from '../../hooks/useCurrentProfile';
 import { useFreshAccessToken } from '../../hooks/useFreshAccessToken';
-import { asProfileId, type MonitorsResponse } from '../../api/types';
+import { DEFAULT_BACKEND, asProfileId, type MonitorsResponse } from '../../api/types';
 import { useDateTimeFormat } from '../../hooks/useDateTimeFormat';
 import { LAYOUT, type TimelineEvent } from './timeline-layout';
 import type { MonitorRow } from './timeline-renderer';
@@ -107,7 +107,7 @@ function ScrubberThumbnail({
 
   const profilePortalUrl = ownerProfile?.portalUrl ?? '';
   const monitors = (queryClient.getQueryData<MonitorsResponse>(queryKeys.monitors(ownerProfile?.id)))?.monitors ?? [];
-  const thumbnailUrls = buildThumbnailChainForEvent(realMonitorId, monitors, profilePortalUrl, event.id, settings.thumbnailFallbackChain, {
+  const thumbnailUrls = buildThumbnailChainForEvent(ownerProfile?.backend ?? DEFAULT_BACKEND, realMonitorId, monitors, profilePortalUrl, event.id, settings.thumbnailFallbackChain, {
     token: isAccessTokenFresh ? accessToken ?? undefined : undefined,
     minStreamingPort: resolveMinStreamingPort(ownerProfile?.minStreamingPort, settings.forceDisableMultiPort),
     monitorId: realMonitorId,

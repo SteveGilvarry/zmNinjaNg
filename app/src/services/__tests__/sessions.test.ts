@@ -25,6 +25,14 @@ vi.mock('../../api/server', () => ({
   getServers: vi.fn(async () => []),
 }));
 
+// The session registry's own behaviour is what is under test here. Backend
+// detection has its own file (backend-probe.test.ts); left unmocked its
+// fire-and-forget probe writes a backend onto these shared profile fixtures
+// and leaks between cases.
+vi.mock('../backend-probe', () => ({
+  probeBackendKind: vi.fn(async () => 'zmapi-v3'),
+}));
+
 /** Flush the microtask queue so fire-and-forget server-map populates settle. */
 async function flush(): Promise<void> {
   await Promise.resolve();
@@ -103,7 +111,7 @@ describe('sessions', () => {
       'https://api.example/profile-a',
       expect.any(Function),
       aId,
-      'legacy',
+      'zmapi-v3',
     );
   });
 
@@ -197,7 +205,25 @@ describe('sessions', () => {
     expect(tryGetCurrentSession()).toBeNull();
   });
 
+  it('does not fetch a server map for a v3 profile', async () => {
+    // v3 has no Servers table to resolve ZMS hosts from; asking would 404.
+    vi.mocked(getServers).mockClear();
+    profiles.set(aId, makeProfile(aId, { backend: 'zmapi-v3' }));
+
+    getSession(aId);
+    await flush();
+
+    expect(getServers).not.toHaveBeenCalled();
+  });
+
   describe('server map bootstrap on session creation (refs #337 I3)', () => {
+    // The multi-server map is a legacy concept: v3 streams from its own
+    // /api/v3/live endpoints rather than a Servers table of ZMS hosts, so
+    // these cases run against a profile that has opted into legacy.
+    beforeEach(() => {
+      profiles.set(aId, makeProfile(aId, { timezone: 'America/New_York', backend: 'legacy' }));
+    });
+
     it('fires one populate against the new session\'s client', async () => {
       const session = getSession(aId);
       await flush();

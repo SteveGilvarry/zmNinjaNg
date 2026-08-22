@@ -79,6 +79,7 @@ export function contextForServer(ctx: ToolContext, server: ScopedServer): ToolCo
     servers: undefined,
     profileId: server.profileId,
     portalUrl: server.portalUrl ?? ctx.portalUrl,
+    backend: server.backend ?? ctx.backend,
     accessToken: server.accessToken ?? null,
     minStreamingPort: server.minStreamingPort ?? ctx.minStreamingPort,
     thumbnailFallbackChain: server.thumbnailFallbackChain ?? ctx.thumbnailFallbackChain,

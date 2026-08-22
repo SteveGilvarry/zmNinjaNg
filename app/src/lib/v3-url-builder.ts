@@ -19,12 +19,20 @@ export function withToken(
   token?: string | null,
   extra?: Record<string, string | number>,
 ): string {
-  const u = new URL(url);
+  // A caller can reach here before the profile's base URL is known, which
+  // leaves a relative path. `new URL` throws on those, and these builders run
+  // during render, so the throw took out the whole list rather than degrading
+  // to one broken image. Parse relative paths against a placeholder origin and
+  // strip it again, so the result stays relative.
+  const RELATIVE_BASE = 'http://relative.invalid';
+  const isAbsolute = /^[a-z][a-z0-9+.-]*:\/\//i.test(url);
+  const u = new URL(url, isAbsolute ? undefined : RELATIVE_BASE);
   if (token) u.searchParams.set('token', token);
   if (extra) {
     for (const [k, v] of Object.entries(extra)) u.searchParams.set(k, String(v));
   }
-  return u.toString();
+  const out = u.toString();
+  return isAbsolute ? out : out.slice(RELATIVE_BASE.length);
 }
 
 /** Absolute URL for a v3 path against the profile's base (apiUrl) URL. */

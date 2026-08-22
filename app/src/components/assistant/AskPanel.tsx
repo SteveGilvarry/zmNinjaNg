@@ -564,6 +564,7 @@ export function AskPanel() {
         queryClient,
         host,
         portalUrl: currentProfile?.portalUrl,
+        backend: currentProfile?.backend,
         accessToken: accessTokenFresh ? accessToken : null,
         minStreamingPort: resolveMinStreamingPort(currentProfile?.minStreamingPort, settings.forceDisableMultiPort),
         thumbnailFallbackChain: settings.thumbnailFallbackChain,

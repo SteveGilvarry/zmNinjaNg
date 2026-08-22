@@ -86,7 +86,10 @@ describe('MonitorRecentEvents thumbnail-chain profile scoping (refs #337 I2)', (
     render(<MonitorRecentEvents monitor={monitor} profileId={asProfileId('profile-b')} />);
 
     expect(buildThumbnailChainForEventMock).toHaveBeenCalledTimes(1);
-    const options = buildThumbnailChainForEventMock.mock.calls[0][5] as unknown as { profileId?: string };
+    // Last argument, not a fixed index: the options bag has moved position
+    // before as parameters were added ahead of it.
+    const call = buildThumbnailChainForEventMock.mock.calls[0];
+    const options = call[call.length - 1] as unknown as { profileId?: string };
     expect(options.profileId).toBe('profile-b');
   });
 

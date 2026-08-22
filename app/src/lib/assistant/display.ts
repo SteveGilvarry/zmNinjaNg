@@ -19,6 +19,7 @@ import { buildThumbnailChain, eventHasAlarmFrame } from '../event/thumbnail-chai
 import { parseDetectedObjects } from '../event/event-detection';
 import { formatAppDateTimeShort } from '../format-date-time';
 import type { DisplayEntity, ToolContext } from './types';
+import { DEFAULT_BACKEND } from '../../api/types';
 
 type EventLike = Pick<Event, 'Id' | 'MonitorId' | 'StartDateTime' | 'Notes' | 'Cause' | 'AlarmFrames'>;
 
@@ -40,7 +41,7 @@ export function buildEventDisplayEntity(
   let imageUrls: string[] = [];
   if (ctx.portalUrl) {
     const eventPortalUrl = getPortalUrlForEvent(e.MonitorId, monitors, ctx.portalUrl);
-    imageUrls = buildThumbnailChain(eventPortalUrl, e.Id, ctx.thumbnailFallbackChain, {
+    imageUrls = buildThumbnailChain(ctx.backend ?? DEFAULT_BACKEND, eventPortalUrl, e.Id, ctx.thumbnailFallbackChain, {
       token: ctx.accessToken ?? undefined,
       minStreamingPort: ctx.minStreamingPort,
       monitorId: e.MonitorId,

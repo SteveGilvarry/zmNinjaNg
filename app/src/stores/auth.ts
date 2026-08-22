@@ -23,12 +23,20 @@ import { hasActiveSession } from '../services/session-flags';
 import { PROBE_PROFILE_ID, type LoginResponse, type ProfileId } from '../api/types';
 import { log, LogLevel } from '../lib/logger';
 import { setSecureValue, getSecureValue, removeSecureValue } from '../lib/security/secureStorage';
-import { ZM_INTEGRATION, STORAGE_KEYS } from '../lib/zmninja-ng-constants';
+import { STORAGE_KEYS } from '../lib/zmninja-ng-constants';
+import { resolveAccessTokenLeewayMs } from '../lib/security/token-freshness';
 
 export interface AuthSlice {
   accessToken: string | null;
   refreshToken: string | null;
   accessTokenExpires: number | null;
+  /**
+   * The access token's total validity when issued, in ms. Backends differ by
+   * an order of magnitude (legacy an hour, zm-api 600s), so the freshness
+   * leeway is derived from this rather than fixed. Null for tokens minted
+   * before this was recorded.
+   */
+  accessTokenLifetimeMs?: number | null;
   refreshTokenExpires: number | null;
   version: string | null;
   apiVersion: string | null;
@@ -46,6 +54,7 @@ const EMPTY_SLICE: AuthSlice = Object.freeze({
   accessToken: null,
   refreshToken: null,
   accessTokenExpires: null,
+  accessTokenLifetimeMs: null,
   refreshTokenExpires: null,
   version: null,
   apiVersion: null,
@@ -460,6 +469,7 @@ export const useAuthStore = create<AuthState>()(
               accessToken: null,
               refreshToken: null,
               accessTokenExpires: null,
+              accessTokenLifetimeMs: null,
               refreshTokenExpires: null,
               version: response.version || currentState.version,
               apiVersion: response.apiversion || currentState.apiVersion,
@@ -478,6 +488,9 @@ export const useAuthStore = create<AuthState>()(
             accessToken,
             refreshToken: response.refresh_token || currentState.refreshToken,
             accessTokenExpires,
+            accessTokenLifetimeMs: response.access_token_expires
+              ? response.access_token_expires * 1000
+              : currentState.accessTokenLifetimeMs,
             refreshTokenExpires: response.refresh_token_expires
               ? now + response.refresh_token_expires * 1000
               : currentState.refreshTokenExpires,
@@ -524,7 +537,7 @@ export const useAuthStore = create<AuthState>()(
           const hasFresh =
             !!state.accessToken &&
             !!state.accessTokenExpires &&
-            state.accessTokenExpires - now > ZM_INTEGRATION.accessTokenLeewayMs;
+            state.accessTokenExpires - now > resolveAccessTokenLeewayMs(state.accessTokenLifetimeMs);
           if (hasFresh) {
             return state.accessToken;
           }

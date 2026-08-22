@@ -14,12 +14,6 @@ export interface ThumbnailFallbackEntry {
 }
 
 export interface ThumbnailChainOptions {
-  /**
-   * Which backend serves this event's images. v3 exposes one thumbnail per
-   * event rather than a frame chain, so the fallback list collapses to a
-   * single URL. Defaults to legacy, matching every pre-v3 caller.
-   */
-  backend?: BackendKind;
   token?: string;
   width?: number;
   height?: number;
@@ -85,6 +79,7 @@ export function resolveFallbackFids(
 }
 
 export function buildThumbnailChain(
+  backend: BackendKind,
   portalUrl: string,
   eventId: string,
   chain: ThumbnailFallbackEntry[] | undefined,
@@ -94,7 +89,7 @@ export function buildThumbnailChain(
   // so there is nothing to fall back through. portalUrl is the v3 base URL for
   // a v3 profile, and the token rides in the query string because an <img> tag
   // cannot send an Authorization header.
-  if (options.backend === 'zmapi-v3') {
+  if (backend === 'zmapi-v3') {
     return [v3EventThumbnailUrl(portalUrl, eventId, options.token)];
   }
   return resolveFallbackFids(chain, options).map((fid) =>
@@ -113,6 +108,7 @@ export function buildThumbnailChain(
  * switching the globally-selected profile.
  */
 export function buildThumbnailChainForEvent(
+  backend: BackendKind,
   monitorId: string,
   monitors: Array<{ Monitor: { Id: string; ServerId: string | null } }>,
   profilePortalUrl: string,
@@ -121,5 +117,5 @@ export function buildThumbnailChainForEvent(
   options: ThumbnailChainOptions & { profileId?: ProfileId | null } = {}
 ): string[] {
   const portalUrl = getPortalUrlForEvent(monitorId, monitors, profilePortalUrl, options.profileId);
-  return buildThumbnailChain(portalUrl, eventId, chain, options);
+  return buildThumbnailChain(backend, portalUrl, eventId, chain, options);
 }

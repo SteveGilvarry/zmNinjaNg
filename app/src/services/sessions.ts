@@ -15,7 +15,7 @@
  * setProfileSettingsGate registration. Refs #337.
  */
 
-import { ALL_PROFILES_ID, PROBE_PROFILE_ID, isAggregateProfileId, type BackendKind, type Profile, type ProfileId } from '../api/types';
+import { ALL_PROFILES_ID, DEFAULT_BACKEND, PROBE_PROFILE_ID, isAggregateProfileId, type BackendKind, type Profile, type ProfileId } from '../api/types';
 import type { ApiClient } from '../api/client';
 import { createStoreApiClient, resetAuthGates } from '../api/store-gates';
 import { markSessionActive, markSessionInactive, markAllSessionsInactive } from './session-flags';
@@ -147,9 +147,9 @@ export function getSession(profileId: ProfileId): ServerSession {
     throw new Error(`getSession: unknown profile ${profileId}`);
   }
 
-  // An unprobed profile starts legacy - the shape every pre-v3 profile had -
-  // and bootstrapBackendKindFor corrects it if the server turns out to be v3.
-  const backend: BackendKind = profile.backend ?? 'legacy';
+  // An unprobed profile starts on the default backend and
+  // bootstrapBackendKindFor corrects it if the server says otherwise.
+  const backend: BackendKind = profile.backend ?? DEFAULT_BACKEND;
   const session: ServerSession = {
     profileId,
     client: createStoreApiClient(profile.apiUrl, gate.reLoginFor(profileId), profileId, backend),

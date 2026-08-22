@@ -19,6 +19,7 @@ import { useAuthStore, useAuthSlice, getAuthSlice } from '../stores/auth';
 import { useCurrentProfile } from './useCurrentProfile';
 import { useProfileScope } from './useProfileScope';
 import { ZM_INTEGRATION } from '../lib/zmninja-ng-constants';
+import { resolveAccessTokenLeewayMs } from '../lib/security/token-freshness';
 import { log, LogLevel } from '../lib/logger';
 
 /**
@@ -37,7 +38,7 @@ import { log, LogLevel } from '../lib/logger';
 export function useTokenRefresh(): void {
   const { currentProfile, isAllMode } = useCurrentProfile();
   const profileId = currentProfile?.id ?? null;
-  const { isAuthenticated, accessTokenExpires } = useAuthSlice(profileId);
+  const { isAuthenticated, accessTokenExpires, accessTokenLifetimeMs } = useAuthSlice(profileId);
   const getFreshAccessToken = useAuthStore((state) => state.getFreshAccessToken);
   const scope = useProfileScope();
   const isRefreshingRef = useRef(false);
@@ -53,7 +54,7 @@ export function useTokenRefresh(): void {
           if (!slice.isAuthenticated || !slice.accessTokenExpires) continue;
 
           const timeUntilExpiry = slice.accessTokenExpires - Date.now();
-          if (timeUntilExpiry < ZM_INTEGRATION.accessTokenLeewayMs) {
+          if (timeUntilExpiry < resolveAccessTokenLeewayMs(slice.accessTokenLifetimeMs)) {
             try {
               if (timeUntilExpiry <= 0) {
                 log.auth('Access token already expired, refreshing... (All mode)', LogLevel.WARN, { profileId: id });
@@ -91,7 +92,7 @@ export function useTokenRefresh(): void {
         // Refresh if token is expiring soon OR already expired.
         // Already-expired tokens can occur when the app returns from background
         // (mobile sleep, tab throttling) where timers were paused.
-        if (timeUntilExpiry < ZM_INTEGRATION.accessTokenLeewayMs) {
+        if (timeUntilExpiry < resolveAccessTokenLeewayMs(accessTokenLifetimeMs)) {
           isRefreshingRef.current = true;
           try {
             if (timeUntilExpiry <= 0) {
@@ -131,5 +132,5 @@ export function useTokenRefresh(): void {
       clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [isAllMode, scope, profileId, isAuthenticated, accessTokenExpires, getFreshAccessToken]);
+  }, [isAllMode, scope, profileId, isAuthenticated, accessTokenExpires, accessTokenLifetimeMs, getFreshAccessToken]);
 }

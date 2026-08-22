@@ -40,6 +40,7 @@ import { useNotificationDelivered } from '../hooks/useNotificationDelivered';
 import { useNotificationBadgeNudge } from '../hooks/useNotificationBadgeNudge';
 import { useNotificationAllModeToasts } from '../hooks/useNotificationAllModeToasts';
 import { ProfileNotificationConnector } from './notifications/ProfileNotificationConnector';
+import { DEFAULT_BACKEND } from '../api/types';
 
 /**
  * NotificationHandler component.
@@ -206,6 +207,7 @@ export function NotificationHandler() {
 
       const toastThumbnailUrls = currentProfile && latestEvent.EventId
         ? buildThumbnailChain(
+            currentProfile.backend ?? DEFAULT_BACKEND,
             currentProfile.portalUrl,
             String(latestEvent.EventId),
             profileSettings.thumbnailFallbackChain,

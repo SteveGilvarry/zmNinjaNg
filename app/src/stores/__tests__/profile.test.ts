@@ -12,6 +12,13 @@ import { getSession, hasSession, dropAllSessions } from '../../services/sessions
 import { useNotificationStore } from '../notifications';
 import { useDeleteSelectionStore, eventSelectionKey } from '../deleteSelection';
 
+// Backend detection has its own file (services/__tests__/backend-probe.test.ts).
+// Unmocked, its fire-and-forget probe fails against these stubbed clients,
+// answers 'legacy', and evicts the session this suite is asserting on.
+vi.mock('../../services/backend-probe', () => ({
+  probeBackendKind: vi.fn(async () => 'zmapi-v3'),
+}));
+
 vi.mock('../../api/store-gates', () => ({
   createStoreApiClient: vi.fn(() => ({ mock: true })),
   resetAuthGates: vi.fn(),
@@ -99,7 +106,7 @@ describe('Profile Store', () => {
 
     expect(id).toBe('profile-1');
     expect(setSecureValue).toHaveBeenCalledWith('password_profile-1', 'secret');
-    expect(createStoreApiClient).toHaveBeenCalledWith('https://example.test', expect.any(Function), 'profile-1', 'legacy');
+    expect(createStoreApiClient).toHaveBeenCalledWith('https://example.test', expect.any(Function), 'profile-1', 'zmapi-v3');
     expect(hasSession(asProfileId('profile-1'))).toBe(true);
 
     const { profiles, currentProfileId } = useProfileStore.getState();

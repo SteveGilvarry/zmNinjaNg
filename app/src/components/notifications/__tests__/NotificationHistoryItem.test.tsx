@@ -59,6 +59,7 @@ describe('NotificationHistoryItem (refs #337)', () => {
 
     expect(useProfileById).toHaveBeenCalledWith(profileB.id);
     expect(buildThumbnailChain).toHaveBeenCalledWith(
+      expect.any(String),
       profileB.portalUrl,
       String(baseEvent.EventId),
       settingsB.thumbnailFallbackChain,

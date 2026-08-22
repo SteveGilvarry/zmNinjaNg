@@ -1,5 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query';
-import type { ProfileId } from '../../api/types';
+import type { BackendKind, ProfileId } from '../../api/types';
 import type { ThumbnailFallbackEntry } from '../event/thumbnail-chain';
 import type { FormatSettings } from '../format-date-time';
 
@@ -214,6 +214,8 @@ export interface ScopedServer {
   /** The profile's name, as the user typed it and as the model must name it. */
   name: string;
   portalUrl?: string;
+  /** Which backend builds this server's image URLs. */
+  backend?: BackendKind;
   accessToken?: string | null;
   minStreamingPort?: number;
   thumbnailFallbackChain?: ThumbnailFallbackEntry[];
@@ -267,6 +269,8 @@ export interface ToolContext {
    * gets an empty `imageUrls` from `buildEventDisplayEntity`.
    */
   portalUrl?: string;
+  /** Which backend builds this profile's image URLs. */
+  backend?: BackendKind;
   accessToken?: string | null;
   minStreamingPort?: number;
   thumbnailFallbackChain?: ThumbnailFallbackEntry[];

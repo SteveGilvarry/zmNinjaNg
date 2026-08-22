@@ -121,8 +121,8 @@ describe('TimelineScrubber owning-profile wiring (refs #337 Task 2/3)', () => {
 
     expect(screen.getByTestId('scrubber-thumb-dup1')).toBeInTheDocument();
     expect(buildThumbnailChainForEventMock).toHaveBeenCalledTimes(1);
-    const [monitorId, , profilePortalUrl, , , options] = buildThumbnailChainForEventMock.mock.calls[0] as [
-      string, unknown, string, unknown, unknown, { profileId?: string; monitorId?: string },
+    const [, monitorId, , profilePortalUrl, , , options] = buildThumbnailChainForEventMock.mock.calls[0] as [
+      unknown, string, unknown, string, unknown, unknown, { profileId?: string; monitorId?: string },
     ];
     expect(monitorId).toBe('7');
     expect(profilePortalUrl).toBe('https://profile-b.test');
@@ -166,7 +166,7 @@ describe('TimelineScrubber owning-profile wiring (refs #337 Task 2/3)', () => {
     fireEvent.click(screen.getByTestId('scrubber-thumb-e1'));
 
     expect(onEventTap).toHaveBeenCalledWith('e1', undefined);
-    const [monitorId] = buildThumbnailChainForEventMock.mock.calls[0] as [string];
+    const [, monitorId] = buildThumbnailChainForEventMock.mock.calls[0] as [unknown, string];
     expect(monitorId).toBe('7');
   });
 });

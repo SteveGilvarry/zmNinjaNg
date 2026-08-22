@@ -22,6 +22,7 @@ import {
   EVENT_GRID_CONSTANTS,
 } from '../../lib/event/event-utils';
 import type { Event, Monitor, ProfileId } from '../../api/types';
+import { DEFAULT_BACKEND } from '../../api/types';
 
 interface MonitorRecentEventsProps {
   monitor: Monitor;
@@ -64,7 +65,7 @@ export function MonitorRecentEvents({ monitor, profileId }: MonitorRecentEventsP
       monitor.Orientation ?? ev.Orientation,
       EVENT_GRID_CONSTANTS.LIST_VIEW_TARGET_SIZE
     );
-    const urls = buildThumbnailChainForEvent(ev.MonitorId, monitorsForResolve, portalUrl, ev.Id, thumbnailChain, {
+    const urls = buildThumbnailChainForEvent(ownerProfile?.backend ?? DEFAULT_BACKEND, ev.MonitorId, monitorsForResolve, portalUrl, ev.Id, thumbnailChain, {
       token: isFresh ? accessToken ?? undefined : undefined,
       width: tw,
       height: th,

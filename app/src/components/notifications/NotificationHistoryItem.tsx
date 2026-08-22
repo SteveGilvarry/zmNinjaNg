@@ -26,6 +26,7 @@ import { getEventCauseIcon } from '../../lib/event/event-icons';
 import { formatDistanceToNow } from 'date-fns';
 import { activateOnEnterOrSpace } from '../../lib/utils';
 import { useDateTimeFormat } from '../../hooks/useDateTimeFormat';
+import { DEFAULT_BACKEND } from '../../api/types';
 
 export interface HistoryEvent extends NotificationEvent {
   profileId: ProfileId;
@@ -59,7 +60,7 @@ function NotificationHistoryItemComponent({ event, showProfileChip, onView, onMa
 
   const chainUrls = useMemo(() => {
     if (!profile || !canView) return [];
-    return buildThumbnailChain(profile.portalUrl, String(event.EventId), settings.thumbnailFallbackChain, {
+    return buildThumbnailChain(profile.backend ?? DEFAULT_BACKEND, profile.portalUrl, String(event.EventId), settings.thumbnailFallbackChain, {
       token: isAccessTokenFresh ? accessToken ?? undefined : undefined,
       minStreamingPort: resolveMinStreamingPort(profile.minStreamingPort, settings.forceDisableMultiPort),
     });

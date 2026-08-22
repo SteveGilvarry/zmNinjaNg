@@ -694,6 +694,17 @@ export interface VirtualProfile {
  */
 export type BackendKind = 'legacy' | 'zmapi-v3';
 
+/**
+ * Backend assumed when a profile has not recorded one yet.
+ *
+ * v3 is the default because it is where ZoneMinder is going; the CakePHP API
+ * is on its way out and a profile has to opt into it. The probe in
+ * services/backend-probe.ts still confirms, and downgrades a server that turns
+ * out to be legacy, so this only decides which way to guess in the window
+ * before the first probe answers.
+ */
+export const DEFAULT_BACKEND: BackendKind = 'zmapi-v3';
+
 export interface Profile {
   id: ProfileId;
   name: string;

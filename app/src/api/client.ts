@@ -1,5 +1,5 @@
 import { httpRequest, type HttpError, type HttpOptions, type HttpResponse } from '../lib/http';
-import type { BackendKind } from './types';
+import { DEFAULT_BACKEND, type BackendKind } from './types';
 import { API_REQUEST } from '../lib/zmninja-ng-constants';
 import { log, LogLevel } from '../lib/logger';
 import { sanitizeObject } from '../lib/log-sanitizer';
@@ -110,7 +110,7 @@ export function createApiClient(
   gates: ApiClientGates,
   reLogin?: () => Promise<boolean>,
   profileId?: string,
-  backend: BackendKind = 'legacy',
+  backend: BackendKind = DEFAULT_BACKEND,
 ): ApiClient {
   // v3 (zm-api) authenticates with an Authorization: Bearer header against JSON
   // auth endpoints; legacy attaches the token as a ?token= query param and logs

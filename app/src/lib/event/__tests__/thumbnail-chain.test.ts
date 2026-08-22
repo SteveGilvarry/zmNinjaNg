@@ -75,7 +75,7 @@ describe('buildThumbnailChain', () => {
       { type: 'alarm', enabled: true },
       { type: 'snapshot', enabled: true },
     ];
-    const urls = buildThumbnailChain('https://zm.example.com/zm', '42', chain, {
+    const urls = buildThumbnailChain('legacy', 'https://zm.example.com/zm', '42', chain, {
       token: 'tok',
       width: 300,
     }).map((u) => decodeURIComponent(u));
@@ -91,7 +91,7 @@ describe('buildThumbnailChain', () => {
     const chain: ThumbnailFallbackEntry[] = [
       { type: 'custom', enabled: true, customFid: 'hd_snapshot' },
     ];
-    const [url] = buildThumbnailChain('https://zm.example.com/zm', '42', chain);
+    const [url] = buildThumbnailChain('legacy', 'https://zm.example.com/zm', '42', chain);
     expect(decodeURIComponent(url)).toContain('fid=hd_snapshot');
   });
 
@@ -100,7 +100,7 @@ describe('buildThumbnailChain', () => {
       { type: 'alarm', enabled: false },
       { type: 'snapshot', enabled: false },
     ];
-    expect(buildThumbnailChain('https://zm.example.com/zm', '42', chain)).toEqual([]);
+    expect(buildThumbnailChain('legacy', 'https://zm.example.com/zm', '42', chain)).toEqual([]);
   });
 });
 
@@ -125,7 +125,7 @@ describe('skipping the alarm frame an event does not have', () => {
   it('builds no alarm URL for an event with no alarm frames', () => {
     // Decoded first: under dev the real URL is nested percent-encoded inside
     // the image proxy, so a raw substring check would never match.
-    const urls = buildThumbnailChain('https://zm.example/zm', '42', chain, {
+    const urls = buildThumbnailChain('legacy', 'https://zm.example/zm', '42', chain, {
       hasAlarmFrame: false,
     }).map(decodeURIComponent);
     expect(urls.some((url) => url.includes('fid=alarm'))).toBe(false);
@@ -153,6 +153,7 @@ describe('buildThumbnailChainForEvent', () => {
     );
 
     const urls = buildThumbnailChainForEvent(
+      'legacy',
       'mon-1',
       monitors,
       'https://fallback-a',
@@ -171,6 +172,7 @@ describe('buildThumbnailChainForEvent', () => {
     );
 
     const urls = buildThumbnailChainForEvent(
+      'legacy',
       'mon-1',
       monitors,
       'https://fallback-a',
@@ -183,6 +185,7 @@ describe('buildThumbnailChainForEvent', () => {
 
   it("falls back to the given profile's portalUrl when its server map has no entry", () => {
     const urls = buildThumbnailChainForEvent(
+      'legacy',
       'mon-1',
       monitors,
       'https://fallback-b',
@@ -205,5 +208,51 @@ describe('eventHasAlarmFrame', () => {
     // Better one wasted request than a silently missing alarm thumbnail.
     expect(eventHasAlarmFrame({})).toBe(true);
     expect(eventHasAlarmFrame({ AlarmFrames: '' })).toBe(true);
+  });
+});
+
+describe('buildThumbnailChain across backends', () => {
+  const chain: ThumbnailFallbackEntry[] = [
+    { type: 'alarm', enabled: true },
+    { type: 'snapshot', enabled: true },
+  ];
+
+  it('collapses the fallback chain to one v3 thumbnail URL', () => {
+    // v3 serves a single thumbnail per event, not a ZoneMinder frame/fid
+    // chain, so there is nothing to fall back through.
+    const urls = buildThumbnailChain('zmapi-v3', 'http://zm.example:8080', '42', chain, {
+      token: 'tok',
+    });
+
+    expect(urls).toHaveLength(1);
+    expect(urls[0]).toContain('/api/v3/events/42/thumbnail');
+  });
+
+  it('carries the token in the query string, because an img tag cannot send a header', () => {
+    const [url] = buildThumbnailChain('zmapi-v3', 'http://zm.example:8080', '42', chain, {
+      token: 'tok',
+    });
+
+    expect(url).toContain('token=tok');
+  });
+
+  it('never builds a CakePHP image URL for a v3 profile', () => {
+    // The defect this pins: with the backend missing, v3 events fell through
+    // to the legacy builder and every thumbnail 404ed against index.php.
+    const [url] = buildThumbnailChain('zmapi-v3', 'http://zm.example:8080', '42', chain, {
+      token: 'tok',
+    });
+
+    expect(url).not.toContain('index.php');
+    expect(url).not.toContain('view=image');
+  });
+
+  it('still builds the legacy chain for a legacy profile', () => {
+    const urls = buildThumbnailChain('legacy', 'https://zm.example.com/zm', '42', chain, {
+      token: 'tok',
+    });
+
+    expect(urls).toHaveLength(2);
+    expect(decodeURIComponent(urls[0])).toContain('view=image');
   });
 });

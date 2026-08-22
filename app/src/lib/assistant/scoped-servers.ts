@@ -46,6 +46,7 @@ export async function buildScopedServers(profiles: readonly Profile[]): Promise<
         profileId: profile.id,
         name: profile.name,
         portalUrl: profile.portalUrl,
+        backend: profile.backend,
         accessToken,
         minStreamingPort: resolveMinStreamingPort(profile.minStreamingPort, settings.forceDisableMultiPort),
         thumbnailFallbackChain: settings.thumbnailFallbackChain,

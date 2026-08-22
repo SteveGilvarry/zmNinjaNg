@@ -99,12 +99,62 @@ describe('API Client', () => {
 
     okOnce();
 
-    const client = createApiClient('https://zm.example.com/api', gates);
+    // Legacy explicitly: it is the backend that carries the token as a query
+    // param, and it is no longer the default.
+    const client = createApiClient('https://zm.example.com/api', gates, undefined, undefined, 'legacy');
     await client.get('/monitors.json');
 
     expect(getFreshAccessToken).toHaveBeenCalled();
     const callArgs = vi.mocked(httpRequest).mock.calls[0]?.[1];
     expect(callArgs?.params?.token).toBe('fresh-at');
+  });
+
+  describe('backend transports', () => {
+    it('carries the token as a query param for legacy', async () => {
+      const gates = mockGates({
+        auth: { getAccessToken: () => 'at', getAccessTokenExpires: () => null, isAuthenticated: () => true },
+      });
+      okOnce();
+
+      const client = createApiClient('https://zm.example.com/api', gates, undefined, undefined, 'legacy');
+      await client.get('/monitors.json');
+
+      const opts = vi.mocked(httpRequest).mock.calls[0]?.[1];
+      expect(opts?.params?.token).toBe('at');
+      expect(opts?.headers?.Authorization).toBeUndefined();
+    });
+
+    it('carries the token as a Bearer header for v3', async () => {
+      // The Auth-tokens contract forbids tokens in query strings; only the
+      // grandfathered legacy path does it.
+      const gates = mockGates({
+        auth: { getAccessToken: () => 'at', getAccessTokenExpires: () => null, isAuthenticated: () => true },
+      });
+      okOnce();
+
+      const client = createApiClient('https://zm.example.com/api', gates, undefined, undefined, 'zmapi-v3');
+      await client.get('/api/v3/monitors');
+
+      const opts = vi.mocked(httpRequest).mock.calls[0]?.[1];
+      expect(opts?.headers?.Authorization).toBe('Bearer at');
+      expect(opts?.params?.token).toBeUndefined();
+    });
+
+    it('never leaks the internal Skip-Auth header onto the wire', async () => {
+      // v3 goes browser-direct, and the server's Access-Control-Allow-Headers
+      // does not list Skip-Auth, so leaking it fails the CORS preflight.
+      okOnce();
+
+      const client = createApiClient('https://zm.example.com/api', mockGates(), undefined, undefined, 'zmapi-v3');
+      await client.get('/api/v3/server/health_check', { headers: { 'Skip-Auth': 'true' } });
+
+      const opts = vi.mocked(httpRequest).mock.calls[0]?.[1];
+      expect(opts?.headers?.['Skip-Auth']).toBeUndefined();
+    });
+
+    it('defaults to v3, because the CakePHP backend is on its way out', () => {
+      expect(createApiClient('https://zm.example.com/api', mockGates()).backend).toBe('zmapi-v3');
+    });
   });
 
   it('attaches no token when refresh returns null for an expired access token', async () => {

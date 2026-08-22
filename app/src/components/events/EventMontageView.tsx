@@ -40,6 +40,7 @@ import { useReturnHighlightStore } from '../../stores/returnHighlight';
 import { cn } from '../../lib/utils';
 import type { ScopedEventItem } from './EventListView';
 import { scopedEventKey } from '../../lib/event/scoped-event-key';
+import { DEFAULT_BACKEND } from '../../api/types';
 
 // Haptic feedback helper
 const triggerHaptic = async () => {
@@ -131,7 +132,12 @@ const EventMontageTile = memo(function EventMontageTile({
   );
 
   const eventPortalUrl = getPortalUrlForMonitor(monitorData?.ServerId, effectivePortalUrl, profileId);
-  const thumbnailUrls = buildThumbnailChain(eventPortalUrl, event.Id, thumbnailChain, {
+  const thumbnailUrls = buildThumbnailChain(
+    ownerProfile?.backend ?? DEFAULT_BACKEND,
+    eventPortalUrl,
+    event.Id,
+    thumbnailChain,
+    {
     token: effectiveAccessToken,
     width: thumbnailWidth,
     height: thumbnailHeight,
